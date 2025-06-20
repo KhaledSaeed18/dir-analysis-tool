@@ -1,6 +1,6 @@
 {
     "name": "dir-analysis-tool",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "A comprehensive cross-platform CLI tool for advanced directory analysis with file classification, duplicate detection, large file identification, interactive mode, HTML reports, and multiple export formats. Perfect for disk cleanup, storage audits, and project analysis.",
     "main": "bin/index.js",
     "bin": {

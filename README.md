@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="assets/images/dir-analysis-logo.png" alt="Directory Analysis Tool Logo" width="200" height="200">
   
 # 📂 dir-analysis-tool
   
