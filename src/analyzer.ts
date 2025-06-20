@@ -3,7 +3,7 @@ import * as path from 'path';
 import { FileClassifier, FileTypeClassification } from './classifier';
 import { shouldExcludeDirectory, shouldExcludeFile, formatSizeInMB } from './utils';
 import { DuplicateDetector, LargeFileDetector, EmptyFileDetector, FileFilter } from './advanced-analysis';
-import { ProgressCallback, LargeFile, DuplicateFileGroup, EmptyFile } from './types';
+import { ProgressCallback } from './types';
 import { TreeViewGenerator } from './tree-view';
 import { ExtendedAnalysisResult } from './export';
 
@@ -15,7 +15,6 @@ export interface AnalysisOptions {
     enableDuplicateDetection?: boolean;
     progressCallback?: ProgressCallback;
     maxDepth?: number;
-    // Phase 1 new options
     minSize?: number;
     maxSize?: number;
     dateFrom?: Date;
@@ -46,7 +45,6 @@ export class DirectoryAnalyzer {
     }
 
     async analyze(options: AnalysisOptions): Promise<ExtendedAnalysisResult> {
-        // Reset counters
         this.totalSize = 0;
         this.folderCount = 0;
         this.fileCount = 0;
@@ -55,7 +53,6 @@ export class DirectoryAnalyzer {
         this.currentDepth = 0;
         this.classifier.reset();
 
-        // Validate path exists
         try {
             const stats = await fs.stat(options.path);
             if (!stats.isDirectory()) {
@@ -69,10 +66,8 @@ export class DirectoryAnalyzer {
             options.progressCallback(0, 1, 'Scanning directories...');
         }
 
-        // First pass: count total files for progress tracking
         const totalFiles = await this.countFiles(options.path, options.recursive, options.excludePatterns, options.maxDepth || -1);
 
-        // Second pass: analyze directory
         await this.analyzeDirectory(
             options.path,
             options.recursive,
@@ -94,7 +89,6 @@ export class DirectoryAnalyzer {
 
         const extendedResult: ExtendedAnalysisResult = { ...basicResult };
 
-        // Large file detection
         if (options.largeSizeThreshold) {
             extendedResult.largeFiles = LargeFileDetector.detectLargeFiles(
                 this.allFiles,
@@ -102,7 +96,6 @@ export class DirectoryAnalyzer {
             );
         }
 
-        // Duplicate detection
         if (options.enableDuplicateDetection) {
             const duplicateDetector = new DuplicateDetector();
             const filePaths = this.allFiles.map(f => f.path);
@@ -128,21 +121,16 @@ export class DirectoryAnalyzer {
             }
         }
 
-        // Phase 1 new features
-        // Apply file filters
         let filteredFiles = this.allFiles;
 
-        // Apply size filters
         if (options.minSize !== undefined || options.maxSize !== undefined) {
             filteredFiles = FileFilter.filterBySize(filteredFiles, options.minSize, options.maxSize);
         }
 
-        // Apply date filters
         if (options.dateFrom || options.dateTo) {
             filteredFiles = await FileFilter.filterByDate(filteredFiles, options.dateFrom, options.dateTo);
         }
 
-        // Top N largest files
         if (options.topN) {
             extendedResult.topLargestFiles = LargeFileDetector.getTopLargestFiles(
                 filteredFiles,
@@ -150,12 +138,10 @@ export class DirectoryAnalyzer {
             );
         }
 
-        // Empty file detection
         if (options.showEmptyFiles) {
             extendedResult.emptyFiles = await EmptyFileDetector.detectEmptyFiles(this.allFiles);
         }
 
-        // Tree view generation (only for smaller datasets to avoid performance issues)
         if (filteredFiles.length <= 1000) {
             extendedResult.treeView = TreeViewGenerator.generateCompactTreeView(
                 filteredFiles,
@@ -224,7 +210,6 @@ export class DirectoryAnalyzer {
                 const fullPath = path.join(dirPath, entry.name);
 
                 if (entry.isDirectory()) {
-                    // Check if directory should be excluded
                     if (shouldExcludeDirectory(entry.name, excludePatterns)) {
                         continue;
                     }
@@ -243,7 +228,6 @@ export class DirectoryAnalyzer {
                         );
                     }
                 } else if (entry.isFile()) {
-                    // Check if file should be excluded
                     if (shouldExcludeFile(entry.name, excludePatterns)) {
                         continue;
                     }
@@ -254,7 +238,6 @@ export class DirectoryAnalyzer {
                         this.fileCount++;
                         this.classifier.classifyFile(entry.name);
 
-                        // Store file info for advanced analysis
                         this.allFiles.push({
                             path: fullPath,
                             size: stats.size

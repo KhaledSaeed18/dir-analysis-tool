@@ -20,7 +20,6 @@ export class DuplicateDetector {
             progressCallback(0, this.totalFiles, 'Starting duplicate detection...');
         }
 
-        // Process files in batches to avoid memory issues
         const batchSize = 50;
         for (let i = 0; i < filePaths.length; i += batchSize) {
             const batch = filePaths.slice(i, i + batchSize);
@@ -45,7 +44,6 @@ export class DuplicateDetector {
                 progressCallback(this.processedFiles, this.totalFiles, filePath);
             }
         } catch (error) {
-            // Skip files that can't be processed
             this.processedFiles++;
             if (progressCallback) {
                 progressCallback(this.processedFiles, this.totalFiles);

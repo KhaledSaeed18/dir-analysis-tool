@@ -14,7 +14,6 @@ export function shouldExcludeDirectory(dirName: string, excludePatterns: string[
 
     return allExcludes.some(pattern => {
         if (pattern.includes('*')) {
-            // Simple glob pattern matching
             const regex = new RegExp(pattern.replace(/\*/g, '.*'));
             return regex.test(dirName);
         }
@@ -25,7 +24,6 @@ export function shouldExcludeDirectory(dirName: string, excludePatterns: string[
 export function shouldExcludeFile(fileName: string, excludePatterns: string[] = []): boolean {
     return excludePatterns.some(pattern => {
         if (pattern.includes('*')) {
-            // Simple glob pattern matching
             const regex = new RegExp(pattern.replace(/\*/g, '.*'));
             return regex.test(fileName);
         }

@@ -26,7 +26,6 @@ export class TreeViewGenerator {
         const nodeMap = new Map<string, TreeNode>();
         nodeMap.set(rootPath, root);
 
-        // Sort files by path to ensure consistent ordering
         const sortedFiles = files.sort((a, b) => a.path.localeCompare(b.path));
 
         for (const file of sortedFiles) {
@@ -37,7 +36,6 @@ export class TreeViewGenerator {
             let currentPath = rootPath;
             let currentNode = root;
 
-            // Create directory nodes
             for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
                 currentPath = path.join(currentPath, part);
@@ -55,7 +53,6 @@ export class TreeViewGenerator {
                 currentNode = nodeMap.get(currentPath)!;
             }
 
-            // Create file node
             const fileName = parts[parts.length - 1];
             const fileNode: TreeNode = {
                 name: fileName,
@@ -66,7 +63,6 @@ export class TreeViewGenerator {
             currentNode.children!.push(fileNode);
         }
 
-        // Sort children: directories first, then files, both alphabetically
         this.sortTreeNodes(root);
         return root;
     }
@@ -75,22 +71,19 @@ export class TreeViewGenerator {
         if (!node.children) return;
 
         node.children.sort((a, b) => {
-            // Directories first
             if (a.isDirectory && !b.isDirectory) return -1;
             if (!a.isDirectory && b.isDirectory) return 1;
 
-            // Then alphabetically
             return a.name.localeCompare(b.name);
         });
 
-        // Recursively sort children
         for (const child of node.children) {
             this.sortTreeNodes(child);
         }
     }
 
     private static renderTree(node: TreeNode, prefix: string = '', isLast: boolean = true, level: number = 0): string {
-        const MAX_DEPTH = 10; // Prevent infinite recursion
+        const MAX_DEPTH = 10;
         if (level > MAX_DEPTH) return '';
 
         let result = '';
@@ -114,7 +107,6 @@ export class TreeViewGenerator {
     }
 
     static generateCompactTreeView(files: Array<{ path: string; size: number }>, rootPath: string, maxFiles: number = 50): string {
-        // Limit the number of files to display for performance
         const limitedFiles = files.slice(0, maxFiles);
         const tree = this.buildTree(limitedFiles, rootPath);
 

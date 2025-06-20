@@ -3,7 +3,7 @@ import { ProgressCallback } from './types';
 export class ProgressBar {
     private static readonly BAR_LENGTH = 40;
     private lastUpdateTime = 0;
-    private readonly updateInterval = 100; // Update every 100ms
+    private readonly updateInterval = 100;
 
     show(current: number, total: number, currentPath?: string): void {
         const now = Date.now();

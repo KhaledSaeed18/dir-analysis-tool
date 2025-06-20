@@ -1,6 +1,6 @@
 {
     "name": "dir-analysis-tool",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "A comprehensive cross-platform CLI tool for advanced directory analysis with file classification, duplicate detection, large file identification, interactive mode, HTML reports, and multiple export formats. Perfect for disk cleanup, storage audits, and project analysis.",
     "main": "bin/index.js",
     "bin": {
@@ -44,12 +44,12 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/khaled-saeed/dir-analysis-tool.git"
+        "url": "git+https://github.com/KhaledSaeed18/dir-analysis-tool.git"
     },
     "bugs": {
-        "url": "https://github.com/khaled-saeed/dir-analysis-tool/issues"
+        "url": "https://github.com/KhaledSaeed18/dir-analysis-tool/issues"
     },
-    "homepage": "https://github.com/khaled-saeed/dir-analysis-tool#readme",
+    "homepage": "https://github.com/KhaledSaeed18/dir-analysis-tool#readme",
     "dependencies": {
         "chalk": "^4.1.2",
         "chokidar": "^4.0.3",

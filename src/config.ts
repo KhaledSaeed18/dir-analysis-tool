@@ -56,11 +56,11 @@ export class ConfigManager {
     static getDefaultConfig(): ConfigOptions {
         return {
             excludePatterns: [],
-            largeSizeThreshold: 100 * 1024 * 1024, // 100MB
+            largeSizeThreshold: 100 * 1024 * 1024,
             enableDuplicateDetection: false,
             enableProgressBar: true,
             outputFormat: 'table',
-            maxDepth: -1 // No limit
+            maxDepth: -1
         };
     }
 }

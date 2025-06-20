@@ -47,37 +47,30 @@ program
     .option('--html [filename]', 'Generate HTML report with charts').argument('[directory]', 'Directory to analyze (alternative to --path)')
     .action(async (directory, options) => {
         try {
-            // Handle interactive mode
             if (options.interactive) {
                 const interactive = new InteractiveMode();
                 await interactive.start();
                 return;
             }
 
-            // Handle watch mode
             if (options.watch) {
                 await startWatchMode(options);
                 return;
             }
 
-            // Determine target path - use directory argument if provided, otherwise use --path option
             const targetPath = directory || options.path || '.';
 
-            // Load configuration
             const configManager = new ConfigManager();
             let config = await configManager.loadConfig(options.config || process.cwd());
             config = configManager.mergeWithCliOptions(options);
 
-            // Parse large file threshold
             const largeSizeThreshold = options.largeFiles
                 ? (typeof options.largeFiles === 'string' ? parseInt(options.largeFiles) : 104857600)
                 : undefined;
 
-            // Parse date filters
             const dateFrom = options.dateFrom ? new Date(options.dateFrom) : undefined;
             const dateTo = options.dateTo ? new Date(options.dateTo) : undefined;
 
-            // Validate dates
             if (dateFrom && isNaN(dateFrom.getTime())) {
                 throw new Error('Invalid date-from format. Use YYYY-MM-DD');
             }
@@ -85,7 +78,6 @@ program
                 throw new Error('Invalid date-to format. Use YYYY-MM-DD');
             }
 
-            // Setup progress callback
             const progressCallback = options.progress
                 ? ProgressBar.createCallback(true)
                 : undefined; const analyzer = new DirectoryAnalyzer();
@@ -98,7 +90,6 @@ program
                 enableDuplicateDetection: options.duplicates || config.enableDuplicateDetection || false,
                 progressCallback,
                 maxDepth: options.maxDepth || config.maxDepth || -1,
-                // Phase 1 new options
                 minSize: options.minSize || config.minSize,
                 maxSize: options.maxSize || config.maxSize,
                 dateFrom: dateFrom || config.dateFrom,
@@ -115,15 +106,14 @@ program
 
             if (progressCallback) {
                 console.log(chalk.green('✅ Analysis complete!\n'));
-            }            // Handle CSV exports
+            }            
             if (options.csv || options.csvLarge || options.csvDuplicates) {
                 await handleCsvExports(result, options);
             }
 
-            // Handle HTML report
             if (options.html) {
                 await handleHtmlReport(result, options);
-            }// Display results
+            }
             if (options.json) {
                 console.log(JSON.stringify(result, null, 2));
             } else if (options.tree) {
@@ -138,7 +128,6 @@ program
     });
 
 async function handleCsvExports(result: ExtendedAnalysisResult, options: any): Promise<void> {
-    // Export general CSV
     if (options.csv) {
         const filename = typeof options.csv === 'string' ? options.csv : 'directory-analysis.csv';
         const csvContent = CSVExporter.exportAnalysis(result);
@@ -146,7 +135,6 @@ async function handleCsvExports(result: ExtendedAnalysisResult, options: any): P
         console.log(chalk.green(`📄 Analysis exported to: ${filename}`));
     }
 
-    // Export large files CSV
     if (options.csvLarge && result.largeFiles && result.largeFiles.length > 0) {
         const filename = typeof options.csvLarge === 'string' ? options.csvLarge : 'large-files.csv';
         const csvContent = CSVExporter.exportLargeFiles(result.largeFiles);
@@ -154,7 +142,6 @@ async function handleCsvExports(result: ExtendedAnalysisResult, options: any): P
         console.log(chalk.green(`📄 Large files exported to: ${filename}`));
     }
 
-    // Export duplicates CSV
     if (options.csvDuplicates && result.duplicateGroups && result.duplicateGroups.length > 0) {
         const filename = typeof options.csvDuplicates === 'string' ? options.csvDuplicates : 'duplicates.csv';
         const csvContent = CSVExporter.exportDuplicates(result.duplicateGroups);
@@ -198,7 +185,6 @@ function printFormattedOutput(result: ExtendedAnalysisResult, showTypes: boolean
         });
     }
 
-    // Display large files if found
     if (result.largeFiles && result.largeFiles.length > 0) {
         console.log(chalk.red(`\n🚨 Large Files (Top ${Math.min(5, result.largeFiles.length)}):`));
         result.largeFiles.slice(0, 5).forEach(file => {
@@ -211,7 +197,6 @@ function printFormattedOutput(result: ExtendedAnalysisResult, showTypes: boolean
         }
     }
 
-    // Display duplicate statistics if found
     if (result.duplicateStats && result.duplicateStats.totalGroups > 0) {
         console.log(chalk.yellow(`\n🔄 Duplicate Files:`));
         console.log(`  📊 Groups: ${result.duplicateStats.totalGroups}`);
@@ -232,12 +217,10 @@ function printFormattedOutput(result: ExtendedAnalysisResult, showTypes: boolean
         }
     }
 
-    // Show top largest files if available
     if (result.topLargestFiles && result.topLargestFiles.length > 0) {
         printTopLargestFiles(result);
     }
 
-    // Show empty files if detected
     if (result.emptyFiles && result.emptyFiles.length > 0) {
         printEmptyFiles(result);
     }
@@ -256,12 +239,10 @@ function printTreeView(result: ExtendedAnalysisResult): void {
         console.log('Use --top-n option to see largest files instead.\n');
     }
 
-    // Show top largest files if available
     if (result.topLargestFiles && result.topLargestFiles.length > 0) {
         printTopLargestFiles(result);
     }
 
-    // Show empty files if detected
     if (result.emptyFiles && result.emptyFiles.length > 0) {
         printEmptyFiles(result);
     }
@@ -295,7 +276,6 @@ function printEmptyFiles(result: ExtendedAnalysisResult): void {
     }
 }
 
-// Watch mode functionality
 async function startWatchMode(options: any): Promise<void> {
     const watchPath = options.path || '.';
     console.log(chalk.blue(`👀 Starting watch mode for: ${path.resolve(watchPath)}`));
@@ -305,12 +285,10 @@ async function startWatchMode(options: any): Promise<void> {
     let lastAnalysis: ExtendedAnalysisResult | null = null;
     let analysisTimeout: NodeJS.Timeout | null = null;
 
-    // Perform initial analysis
     await performAnalysis();
 
-    // Set up file watcher
     const watcher = chokidar.watch(watchPath, {
-        ignored: /(^|[\/\\])\../, // ignore dotfiles
+        ignored: /(^|[\/\\])\../, 
         persistent: true,
         ignoreInitial: true,
         depth: options.maxDepth || undefined
@@ -338,7 +316,6 @@ async function startWatchMode(options: any): Promise<void> {
             scheduleAnalysis();
         });
 
-    // Handle graceful shutdown
     process.on('SIGINT', () => {
         console.log(chalk.blue('\n👋 Stopping watch mode...'));
         watcher.close();
@@ -372,11 +349,10 @@ async function startWatchMode(options: any): Promise<void> {
             clearTimeout(analysisTimeout);
         }
 
-        // Debounce analysis to avoid too frequent updates
         analysisTimeout = setTimeout(() => {
             console.log(chalk.gray('🔄 Updating analysis...\n'));
             performAnalysis();
-        }, 2000); // Wait 2 seconds after last change
+        }, 2000); 
     }
 }
 
@@ -419,11 +395,9 @@ function displayWatchResults(current: ExtendedAnalysisResult, previous: Extended
     console.log(chalk.gray('═'.repeat(50)));
 }
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
 });
 
-// Parse command line arguments
 program.parse();

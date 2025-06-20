@@ -6,17 +6,14 @@ export class HTMLReportGenerator {
     static async generateReport(result: ExtendedAnalysisResult, filename?: string): Promise<string> {
         let outputFile = filename || `directory-analysis-${new Date().toISOString().slice(0, 10)}.html`;
 
-        // Check if the provided filename is actually a directory
         if (filename) {
             try {
                 const stats = await fs.stat(filename);
                 if (stats.isDirectory()) {
-                    // If it's a directory, generate a filename inside that directory
                     const path = require('path');
                     outputFile = path.join(filename, `directory-analysis-${new Date().toISOString().slice(0, 10)}.html`);
                 }
             } catch (error) {
-                // If stat fails, assume it's a valid filename (file doesn't exist yet)
                 outputFile = filename;
             }
         }
@@ -510,7 +507,7 @@ export class HTMLReportGenerator {
         const fileTypeData = this.getFileTypeChartData(result.types);
         const largestFilesData = this.getLargestFilesChartData(result.topLargestFiles);
 
-        return `            // File Type Chart
+        return `            
             const fileTypeCtx = document.getElementById('fileTypeChart').getContext('2d');
             new Chart(fileTypeCtx, {
                 type: 'doughnut',
@@ -569,7 +566,6 @@ export class HTMLReportGenerator {
             });
 
             ${result.topLargestFiles && result.topLargestFiles.length > 0 ? `
-            // Largest Files Chart
             const largestFilesCtx = document.getElementById('largestFilesChart').getContext('2d');
             new Chart(largestFilesCtx, {
                 type: 'bar',

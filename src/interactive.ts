@@ -165,7 +165,6 @@ export class InteractiveMode {
             options.topN = parseInt(topN);
         }
 
-        // Advanced filters
         const { useFilters } = await inquirer.prompt([
             {
                 type: 'confirm',
@@ -276,7 +275,7 @@ export class InteractiveMode {
         ]);
 
         this.currentPath = path.resolve(newPath);
-        this.currentResult = null; // Clear previous results
+        this.currentResult = null; 
         console.log(chalk.green(`📂 Changed to: ${this.currentPath}`));
     }
 
@@ -289,7 +288,6 @@ export class InteractiveMode {
         console.log(chalk.yellow(`${EMOJIS.folderIcon} Folders: ${result.folders}`));
         console.log(chalk.cyan(`${EMOJIS.fileIcon} Files: ${result.files}`));
 
-        // File types
         console.log(chalk.magenta(`\n${EMOJIS.types} File Types:`));
         const typeEntries = [
             { key: 'code', emoji: EMOJIS.code, label: 'Code' },

@@ -9,7 +9,6 @@ export interface ExtendedAnalysisResult extends AnalysisResult {
         totalWastedSpace: number;
         totalWastedSpaceFormatted: string;
     };
-    // Phase 1 new properties
     emptyFiles?: EmptyFile[];
     topLargestFiles?: LargeFile[];
     treeView?: string;
@@ -19,27 +18,22 @@ export class CSVExporter {
     static exportAnalysis(result: ExtendedAnalysisResult): string {
         const lines: string[] = [];
 
-        // Header
         lines.push('Type,Path,Size (Bytes),Size (Formatted),Count,Details');
 
-        // Summary
         lines.push(`Summary,${result.path},${result.totalSizeBytes},${result.totalSizeMB}MB,${result.files},Folders: ${result.folders}`);
 
-        // File types
         Object.entries(result.types).forEach(([type, count]) => {
             if (count > 0) {
                 lines.push(`FileType,${type},-,-,${count},-`);
             }
         });
 
-        // Large files
         if (result.largeFiles && result.largeFiles.length > 0) {
             result.largeFiles.forEach(file => {
                 lines.push(`LargeFile,"${file.path}",${file.size},"${file.sizeFormatted}",1,-`);
             });
         }
 
-        // Duplicate groups
         if (result.duplicateGroups && result.duplicateGroups.length > 0) {
             result.duplicateGroups.forEach((group, index) => {
                 group.files.forEach((file, fileIndex) => {
