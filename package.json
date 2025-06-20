@@ -1,13 +1,14 @@
 {
     "name": "dir-analysis-tool",
-    "version": "1.0.2",
-    "description": "A cross-platform command-line tool that analyzes directories and outputs size, file counts, and file type classifications",
+    "version": "1.0.3",
+    "description": "A comprehensive cross-platform CLI tool for advanced directory analysis with file classification, duplicate detection, large file identification, interactive mode, HTML reports, and multiple export formats. Perfect for disk cleanup, storage audits, and project analysis.",
     "main": "bin/index.js",
     "bin": {
         "dir-analysis-tool": "bin/index.js"
     },
     "files": [
         "bin/**/*",
+        "assets/**/*",
         "README.md",
         "LICENSE"
     ],
@@ -22,7 +23,22 @@
         "directory",
         "analyzer",
         "file-system",
-        "typescript"
+        "typescript",
+        "disk-cleanup",
+        "duplicate-detection",
+        "file-classification",
+        "storage-audit",
+        "directory-analysis",
+        "file-manager",
+        "disk-usage",
+        "large-files",
+        "interactive-cli",
+        "html-reports",
+        "csv-export",
+        "tree-view",
+        "file-explorer",
+        "system-tools",
+        "cross-platform"
     ],
     "author": "Khaled Saeed",
     "license": "MIT",
