@@ -1,0 +1,11 @@
+{
+    "excludePatterns": [
+        "*.log",
+        "*.map"
+    ],
+    "largeSizeThreshold": 5000,
+    "enableDuplicateDetection": false,
+    "enableProgressBar": false,
+    "outputFormat": "table",
+    "maxDepth": 3
+}

@@ -1,0 +1,13 @@
+{
+    "excludePatterns": [
+        "*.log",
+        "temp*",
+        ".cache",
+        "*.tmp"
+    ],
+    "largeSizeThreshold": 104857600,
+    "enableDuplicateDetection": false,
+    "enableProgressBar": true,
+    "outputFormat": "table",
+    "maxDepth": -1
+}
