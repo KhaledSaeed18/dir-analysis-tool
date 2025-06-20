@@ -1,11 +1,16 @@
 {
     "name": "dir-analysis-tool",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "description": "A cross-platform command-line tool that analyzes directories and outputs size, file counts, and file type classifications",
     "main": "bin/index.js",
     "bin": {
         "dir-analysis-tool": "bin/index.js"
     },
+    "files": [
+        "bin/**/*",
+        "README.md",
+        "LICENSE"
+    ],
     "scripts": {
         "build": "tsc",
         "dev": "tsx src/cli.ts",

@@ -45,22 +45,22 @@ A powerful cross-platform command-line tool written in TypeScript that analyzes 
 ### Using npm/pnpm globally
 
 ```bash
-npm install -g dir-analyzer
+npm install -g dir-analysis-tool
 # or
-pnpm install -g dir-analyzer
+pnpm install -g dir-analysis-tool
 ```
 
 ### Using npx (no installation)
 
 ```bash
-npx dir-analyzer [options]
+npx dir-analysis-tool [options]
 ```
 
 ### Local development
 
 ```bash
 git clone <repository>
-cd dir-analyzer
+cd dir-analysis-tool
 pnpm install
 pnpm build
 ```
@@ -70,77 +70,77 @@ pnpm build
 ### Basic usage
 
 ```bash
-dir-analyzer
+dir-analysis-tool
 ```
 
 ### Analyze a specific directory
 
 ```bash
-dir-analyzer --path /path/to/directory
+dir-analysis-tool --path /path/to/directory
 ```
 
 ### Enable large file detection (100MB threshold)
 
 ```bash
-dir-analyzer --large-files
+dir-analysis-tool --large-files
 ```
 
 ### Custom large file threshold (50MB)
 
 ```bash
-dir-analyzer --large-files 52428800
+dir-analysis-tool --large-files 52428800
 ```
 
 ### Enable duplicate detection
 
 ```bash
-dir-analyzer --duplicates
+dir-analysis-tool --duplicates
 ```
 
 ### Export to CSV
 
 ```bash
 # Export general analysis
-dir-analyzer --csv
+dir-analysis-tool --csv
 
 # Export with custom filename
-dir-analyzer --csv my-analysis.csv
+dir-analysis-tool --csv my-analysis.csv
 
 # Export large files to CSV
-dir-analyzer --large-files --csv-large large-files.csv
+dir-analysis-tool --large-files --csv-large large-files.csv
 
 # Export duplicates to CSV
-dir-analyzer --duplicates --csv-duplicates duplicates.csv
+dir-analysis-tool --duplicates --csv-duplicates duplicates.csv
 ```
 
 ### Use configuration file
 
 ```bash
-dir-analyzer --config ./my-config.json
+dir-analysis-tool --config ./my-config.json
 ```
 
 ### Combine multiple features
 
 ```bash
-dir-analyzer --path /my/project --large-files --duplicates --csv --progress --max-depth 5
+dir-analysis-tool --path /my/project --large-files --duplicates --csv --progress --max-depth 5
 ```
 
 ### Get JSON output
 
 ```bash
-dir-analyzer --json
+dir-analysis-tool --json
 ```
 
 ### Disable recursive scanning
 
 ```bash
-dir-analyzer --no-recursive
+dir-analysis-tool --no-recursive
 ```
 
 ### Exclude specific patterns
 
 ```bash
-dir-analyzer --exclude "*.log" "temp*" "cache"
+dir-analysis-tool --exclude "*.log" "temp*" "cache"
 ```
 
 ## Options
@@ -170,8 +170,8 @@ dir-analyzer --exclude "*.log" "temp*" "cache"
 
 You can save analysis settings in a configuration file to avoid repeating command-line options. The tool looks for configuration files in the following order:
 
-1. `.dir-analyzer.json` in the current directory
-2. `dir-analyzer.config.json` in the current directory
+1. `.dir-analysis-tool.json` in the current directory
+2. `dir-analysis-tool.config.json` in the current directory
 3. Searches parent directories up to the root
 
 ### Configuration File Example
@@ -363,33 +363,33 @@ You can add custom exclusions using the `--exclude` option or configuration file
 
 ```bash
 # Show only files between 1MB and 10MB
-dir-analyzer --min-size 1048576 --max-size 10485760
+dir-analysis-tool --min-size 1048576 --max-size 10485760
 
 # Show only files larger than 50MB
-dir-analyzer --min-size 52428800
+dir-analysis-tool --min-size 52428800
 ```
 
 ### Date range filtering
 
 ```bash
 # Show files modified after January 1, 2024
-dir-analyzer --date-from 2024-01-01
+dir-analysis-tool --date-from 2024-01-01
 
 # Show files modified between two dates
-dir-analyzer --date-from 2024-01-01 --date-to 2024-12-31
+dir-analysis-tool --date-from 2024-01-01 --date-to 2024-12-31
 ```
 
 ### Tree view and top files
 
 ```bash
 # Display directory structure as a tree
-dir-analyzer --tree
+dir-analysis-tool --tree
 
 # Show top 20 largest files
-dir-analyzer --top-n 20
+dir-analysis-tool --top-n 20
 
 # Detect empty files
-dir-analyzer --empty-files
+dir-analysis-tool --empty-files
 ```
 
 ## Phase 2 Features
@@ -398,30 +398,30 @@ dir-analyzer --empty-files
 
 ```bash
 # Start interactive exploration mode
-dir-analyzer --interactive
+dir-analysis-tool --interactive
 ```
 
 ### Watch mode
 
 ```bash
 # Monitor directory for changes
-dir-analyzer --watch
+dir-analysis-tool --watch
 
 # Watch with limited depth
-dir-analyzer --watch --max-depth 3
+dir-analysis-tool --watch --max-depth 3
 ```
 
 ### HTML reports
 
 ```bash
 # Generate HTML report with charts
-dir-analyzer --html
+dir-analysis-tool --html
 
 # Generate HTML report with custom filename
-dir-analyzer --html my-report.html
+dir-analysis-tool --html my-report.html
 
 # Full analysis with HTML report
-dir-analyzer --large-files --duplicates --top-n 15 --html complete-report.html
+dir-analysis-tool --large-files --duplicates --top-n 15 --html complete-report.html
 ```
 
 ## Advanced Usage Examples
@@ -430,30 +430,30 @@ dir-analyzer --large-files --duplicates --top-n 15 --html complete-report.html
 
 ```bash
 # Find large files and duplicates in a project
-dir-analyzer --large-files 10485760 --duplicates --csv cleanup-report.csv
+dir-analysis-tool --large-files 10485760 --duplicates --csv cleanup-report.csv
 
 # Analyze with specific exclusions
-dir-analyzer --exclude "node_modules" "*.log" "tmp*" --large-files --duplicates
+dir-analysis-tool --exclude "node_modules" "*.log" "tmp*" --large-files --duplicates
 ```
 
 ### CI/CD Integration
 
 ```bash
 # Generate JSON report for automated processing
-dir-analyzer --json --large-files --max-depth 3 > analysis-report.json
+dir-analysis-tool --json --large-files --max-depth 3 > analysis-report.json
 
 # Check for space usage with threshold
-dir-analyzer --large-files 52428800 --csv-large large-files.csv
+dir-analysis-tool --large-files 52428800 --csv-large large-files.csv
 ```
 
 ### Documentation & Reporting
 
 ```bash
 # Generate comprehensive CSV reports
-dir-analyzer --csv analysis.csv --csv-large large.csv --csv-duplicates dupes.csv --large-files --duplicates
+dir-analysis-tool --csv analysis.csv --csv-large large.csv --csv-duplicates dupes.csv --large-files --duplicates
 
 # Create project documentation
-dir-analyzer --path ./src --types --json > project-structure.json
+dir-analysis-tool --path ./src --types --json > project-structure.json
 ```
 
 ## Requirements

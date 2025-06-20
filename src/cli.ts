@@ -14,9 +14,9 @@ import chokidar from 'chokidar';
 const program = new Command();
 
 program
-    .name('dir-analyzer')
+    .name('dir-analysis-tool')
     .description('Analyze directory contents and classify files by type with advanced features')
-    .version('1.0.0');
+    .version('1.0.2');
 
 program
     .option('-p, --path <path>', 'Target directory to analyze', '.')
@@ -35,7 +35,6 @@ program
     .option('--no-progress', 'Disable progress bar')
     .option('--max-depth <depth>', 'Maximum directory depth to scan', parseInt)
     .option('-c, --config [path]', 'Load configuration from file')
-    // Phase 1 new options
     .option('--min-size <size>', 'Filter files by minimum size (bytes)', parseInt)
     .option('--max-size <size>', 'Filter files by maximum size (bytes)', parseInt)
     .option('--date-from <date>', 'Filter files modified after this date (YYYY-MM-DD)')
@@ -43,7 +42,6 @@ program
     .option('--tree', 'Display results in tree view format')
     .option('--top-n <number>', 'Show top N largest files (default: 10)', parseInt)
     .option('--empty-files', 'Detect and show empty files')
-    // Phase 2 new options
     .option('-i, --interactive', 'Start interactive mode')
     .option('-w, --watch', 'Watch mode - monitor directory changes')
     .option('--html [filename]', 'Generate HTML report with charts').argument('[directory]', 'Directory to analyze (alternative to --path)')
