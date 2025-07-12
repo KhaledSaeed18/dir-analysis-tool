@@ -34,7 +34,7 @@ This project and everyone participating in it is governed by our Code of Conduct
 
    ```bash
    # Click the "Fork" button on GitHub, then clone your fork
-   git clone https://github.com/YOUR_USERNAME/dir-analysis-tool.git
+   git clone https://github.com/KhaledSaeed18/dir-analysis-tool.git
    cd dir-analysis-tool
    ```
 
