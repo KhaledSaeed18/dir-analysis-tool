@@ -4,8 +4,9 @@
   
   **A powerful, feature-rich command-line tool for comprehensive directory analysis**
   
-  [![npm version](https://badge.fury.io/js/dir-analysis-tool.svg)](https://badge.fury.io/js/dir-analysis-tool)
   [![Downloads](https://img.shields.io/npm/dm/dir-analysis-tool.svg)](https://www.npmjs.com/package/dir-analysis-tool)  
+
+  [![NPM](https://nodei.co/npm/dir-analysis-tool.png?compact=true)](https://nodei.co/npm/dir-analysis-tool/)
 </div>
 
 ## ✨ Features
