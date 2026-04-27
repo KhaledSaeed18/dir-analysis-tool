@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.0...v2.0.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* **release:** update release workflow and clean up commit-analyzer configuration ([1a8d165](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/1a8d165d2deb8018fee4d368f32a5fdecc3e633a))
+
 # [2.0.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v1.0.1...v2.0.0) (2026-04-27)
 
 
