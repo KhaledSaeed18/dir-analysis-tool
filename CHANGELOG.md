@@ -1,3 +1,10 @@
+# [2.0.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v1.0.1...v2.0.0) (2026-04-27)
+
+
+### Bug Fixes
+
+* **release:** restore npm auth fallback and enforce major bump ([6a1ceb3](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/6a1ceb376ad6751b92dd4a2437c2418d1deecc04))
+
 ## [1.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v1.0.0...v1.0.1) (2026-04-27)
 
 
