@@ -6,6 +6,11 @@
             {
                 "releaseRules": [
                     {
+                        "type": "fix",
+                        "scope": "release",
+                        "release": "major"
+                    },
+                    {
                         "type": "chore",
                         "scope": "release-2",
                         "release": "major"
