@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v1.0.0...v1.0.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* **release:** update release workflow and configuration for semantic-release ([fc9d475](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/fc9d475f38053de7a94e918fc1dc8bcc4a006412))
+
 # 1.0.0 (2026-04-27)
 
 
