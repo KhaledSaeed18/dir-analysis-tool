@@ -1,22 +1,28 @@
 {
     "name": "dir-analysis-tool",
-    "version": "1.0.5",
-    "description": "A comprehensive cross-platform CLI tool for advanced directory analysis with file classification, duplicate detection, large file identification, interactive mode, HTML reports, and multiple export formats. Perfect for disk cleanup, storage audits, and project analysis.",
-    "main": "bin/index.js",
+    "version": "2.0.0",
+    "description": "A fast, memory-safe CLI for directory analysis — file classification, duplicate detection, large-file identification, HTML reports, and multiple export formats.",
+    "type": "module",
+    "main": "dist/index.js",
     "bin": {
-        "dir-analysis-tool": "bin/index.js"
+        "dat": "dist/index.js",
+        "dir-analysis-tool": "dist/index.js"
     },
     "files": [
-        "bin/**/*",
-        "assets/**/*",
+        "dist/**/*",
         "README.md",
         "LICENSE"
     ],
     "scripts": {
-        "build": "tsc",
-        "dev": "tsx src/cli.ts",
-        "start": "node bin/index.js",
-        "prepublishOnly": "pnpm build"
+        "build": "tsup",
+        "dev": "tsx src/index.ts",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint src",
+        "lint:fix": "eslint src --fix",
+        "format": "prettier --write src",
+        "format:check": "prettier --check src",
+        "prepublishOnly": "pnpm build",
+        "prepare": "husky"
     },
     "keywords": [
         "cli",
@@ -29,15 +35,11 @@
         "file-classification",
         "storage-audit",
         "directory-analysis",
-        "file-manager",
         "disk-usage",
         "large-files",
-        "interactive-cli",
         "html-reports",
         "csv-export",
         "tree-view",
-        "file-explorer",
-        "system-tools",
         "cross-platform"
     ],
     "author": "Khaled Saeed",
@@ -51,17 +53,25 @@
     },
     "homepage": "https://github.com/KhaledSaeed18/dir-analysis-tool#readme",
     "dependencies": {
-        "chalk": "^4.1.2",
-        "chokidar": "^4.0.3",
-        "commander": "^11.1.0",
-        "inquirer": "^12.6.3",
-        "pretty-bytes": "^5.6.0"
+        "@clack/prompts": "latest",
+        "chalk": "latest",
+        "chokidar": "latest",
+        "commander": "latest",
+        "pretty-bytes": "latest",
+        "zod": "latest"
     },
     "devDependencies": {
-        "@types/inquirer": "^9.0.8",
-        "@types/node": "^20.10.0",
-        "tsx": "^4.6.0",
-        "typescript": "^5.3.0"
+        "@commitlint/cli": "latest",
+        "@commitlint/config-conventional": "latest",
+        "@eslint/js": "latest",
+        "@types/node": "latest",
+        "eslint": "latest",
+        "husky": "latest",
+        "prettier": "latest",
+        "tsup": "latest",
+        "tsx": "latest",
+        "typescript": "latest",
+        "typescript-eslint": "latest"
     },
     "engines": {
         "node": ">=18.0.0"

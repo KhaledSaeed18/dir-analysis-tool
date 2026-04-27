@@ -1,279 +1,195 @@
-<div align="center">
-  
-# 📂 dir-analysis-tool
-  
-  **A powerful, feature-rich command-line tool for comprehensive directory analysis**
-  
-  [![Downloads](https://img.shields.io/npm/dm/dir-analysis-tool.svg)](https://www.npmjs.com/package/dir-analysis-tool)  
+# dir-analysis-tool
 
-  [![NPM](https://nodei.co/npm/dir-analysis-tool.png?compact=true)](https://nodei.co/npm/dir-analysis-tool/)
-</div>
+[![npm version](https://img.shields.io/npm/v/dir-analysis-tool.svg)](https://www.npmjs.com/package/dir-analysis-tool)
+[![CI](https://github.com/KhaledSaeed18/dir-analysis-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/KhaledSaeed18/dir-analysis-tool/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/dir-analysis-tool.svg)](https://nodejs.org/)
 
-## ✨ Features
+A fast, memory-safe CLI for directory analysis — file classification, duplicate detection, large-file identification, HTML reports, and multiple export formats.
 
-- 📊 **Comprehensive Directory Analysis** - Get detailed insights into directory structure, file counts, and sizes
-- 🗂️ **Smart File Classification** - Automatically categorize files by type (images, videos, documents, audio, code, archives)
-- 🚨 **Large File Detection** - Identify files consuming significant disk space
-- 🔄 **Duplicate File Detection** - Find and analyze duplicate files to reclaim storage
-- 📈 **Interactive Mode** - Explore directories with an intuitive interactive interface
-- 🌳 **Tree View Visualization** - Display directory structure in a beautiful tree format
-- 📊 **HTML Reports** - Generate rich HTML reports with charts and visualizations
-- 📄 **Multiple Export Formats** - Export results to JSON, CSV, or HTML
-- ⚡ **Real-time Progress Tracking** - Monitor analysis progress with visual progress bars
-- 👀 **Watch Mode** - Monitor directory changes in real-time
-- 🎯 **Advanced Filtering** - Filter files by size, date, patterns, and more
-- ⚙️ **Configurable** - Customize analysis with configuration files
-- 🚀 **High Performance** - Optimized for speed and memory efficiency
-- 🌍 **Cross-platform** - Works on Windows, macOS, and Linux
-
-## 🚀 Installation
-
-### Global Installation (Recommended)
+## Quick Start
 
 ```bash
-npm install -g dir-analysis-tool
+npm install -g dir-analysis-tool   # install globally
+
+dat                                 # analyze current directory
+dat /path/to/project                # analyze any path
+dat analyze . --json | jq .files   # pipe-safe JSON output
 ```
 
-### Local Installation
+## Features
+
+| Feature | Description |
+|---|---|
+| Single-pass streaming walk | No double I/O — files are stat'd once |
+| Streaming MD5 hashing | Duplicate detection without loading files into RAM |
+| TTY-aware progress | Progress bar only in interactive terminals; silent in pipes |
+| File type classification | Images, videos, audio, documents, code, archives, other |
+| Duplicate detection | Groups identical files by content hash; shows wasted space |
+| Large-file detection | Configurable threshold in MB |
+| Empty-file detection | Find all zero-byte files |
+| Top-N largest files | Quick disk usage overview |
+| HTML reports | Charts and tables, matrix/terminal aesthetic |
+| CSV export | Full analysis, large files, or duplicates |
+| Tree view | Visual directory structure (up to 1 000 files) |
+| Watch mode | Debounced re-analysis on every filesystem change |
+| Directory comparison | Side-by-side stats for two directories |
+| Config file | `.dir-analyzer.json` for default settings |
+| Interactive init | `dat init` creates the config file with prompts |
+
+## CLI Reference
+
+### `dat [directory]` / `dat analyze [directory]`
+
+Analyze a directory. Defaults to the current working directory.
 
 ```bash
-npm install dir-analysis-tool
+dat                              # analyze cwd
+dat /path/to/project             # explicit path
+dat analyze . --json             # JSON output (no ANSI, pipe-safe)
+dat analyze . --tree             # directory tree view
+dat analyze . --duplicates       # detect duplicate files
+dat analyze . --large-files      # files > 100 MB
+dat analyze . --large-files 50   # files > 50 MB
+dat analyze . --empty-files      # detect zero-byte files
+dat analyze . --top-n 20         # top 20 largest files
+dat analyze . --html             # generate HTML report
+dat analyze . --csv              # export to CSV
+dat analyze . --exclude node_modules dist coverage
+dat analyze . --max-depth 3      # limit scan depth
+dat analyze . --min-size 1000    # files >= 1 KB only
+dat analyze . --date-from 2024-01-01 --date-to 2024-12-31
 ```
 
-## 📖 Usage
+**Options**
 
-### Basic Usage
+| Flag | Description |
+|---|---|
+| `--no-recursive` | Disable recursive scan |
+| `-j, --json` | JSON output (suppresses progress, safe to pipe) |
+| `--tree` | Show directory tree |
+| `--no-types` | Hide file-type breakdown |
+| `-e, --exclude <patterns...>` | Exclude dirs/files by name or glob |
+| `-l, --large-files [mb]` | Detect large files (default threshold: 100 MB) |
+| `-d, --duplicates` | Enable duplicate detection |
+| `--empty-files` | Detect zero-byte files |
+| `--top-n <n>` | Show top N largest files |
+| `--max-depth <depth>` | Limit directory depth |
+| `--min-size <bytes>` | Minimum file size filter |
+| `--max-size <bytes>` | Maximum file size filter |
+| `--date-from <YYYY-MM-DD>` | Files modified after this date |
+| `--date-to <YYYY-MM-DD>` | Files modified before this date |
+| `--csv [filename]` | Export full analysis to CSV |
+| `--csv-large [filename]` | Export large-file list to CSV |
+| `--csv-duplicates [filename]` | Export duplicate groups to CSV |
+| `--html [filename]` | Generate HTML report with charts |
+| `-c, --config [path]` | Path to config file |
 
-Analyze current directory:
+---
+
+### `dat watch [directory]`
+
+Watch a directory and re-analyze automatically (debounced 2 s) after changes.
 
 ```bash
-dir-analysis-tool
+dat watch .
+dat watch /path/to/project --duplicates --top-n 10
 ```
 
-Analyze specific directory:
+---
+
+### `dat compare <dir1> <dir2>`
+
+Compare two directories side by side.
 
 ```bash
-dir-analysis-tool /path/to/directory
+dat compare src/ dist/
+dat compare /project-v1 /project-v2 --json
 ```
 
-### Command Line Options
+---
+
+### `dat init`
+
+Interactively create a `.dir-analyzer.json` config file in the current directory.
 
 ```bash
-dir-analysis-tool [directory] [options]
+dat init
 ```
 
-#### Core Options
+---
 
-- `-p, --path <path>` - Target directory to analyze (default: current directory)
-- `-r, --recursive` - Recursively analyze nested directories (default: true)
-- `--no-recursive` - Disable recursive analysis
-- `-j, --json` - Output results in JSON format
-- `-t, --types` - Show file type classification summary (default: true)
-- `--no-types` - Hide file type classification
+## Configuration
 
-#### Advanced Analysis
-
-- `-l, --large-files [threshold]` - Detect large files (default: 100MB)
-- `-d, --duplicates` - Enable duplicate file detection
-- `--empty-files` - Detect and show empty files
-- `--top-n <number>` - Show top N largest files (default: 10)
-- `--tree` - Display results in tree view format
-
-#### Filtering Options
-
-- `-e, --exclude <patterns...>` - Exclude file patterns or directories
-- `--max-depth <depth>` - Maximum directory depth to scan
-- `--min-size <size>` - Filter files by minimum size (bytes)
-- `--max-size <size>` - Filter files by maximum size (bytes)
-- `--date-from <date>` - Filter files modified after this date (YYYY-MM-DD)
-- `--date-to <date>` - Filter files modified before this date (YYYY-MM-DD)
-
-#### Export Options
-
-- `--csv [filename]` - Export results to CSV file
-- `--csv-large [filename]` - Export large files to CSV
-- `--csv-duplicates [filename]` - Export duplicates to CSV
-- `--html [filename]` - Generate HTML report with charts
-
-#### Interactive & Monitoring
-
-- `-i, --interactive` - Start interactive mode
-- `-w, --watch` - Watch mode - monitor directory changes
-- `--progress` - Show progress bar during analysis (default: true)
-- `--no-progress` - Disable progress bar
-
-#### Configuration
-
-- `-c, --config [path]` - Load configuration from file
-
-### 🎯 Examples
-
-#### Basic Analysis
-
-```bash
-# Analyze current directory with file type classification
-dir-analysis-tool
-
-# Analyze specific directory
-dir-analysis-tool ~/Documents
-
-# Get JSON output
-dir-analysis-tool --json ~/Downloads
-```
-
-#### Advanced Analysis
-
-```bash
-# Find large files over 50MB and duplicates
-dir-analysis-tool --large-files 52428800 --duplicates ~/Pictures
-
-# Show tree view with top 20 largest files
-dir-analysis-tool --tree --top-n 20 /var/log
-
-# Analyze with filters
-dir-analysis-tool --min-size 1048576 --max-depth 3 --exclude "*.tmp" "cache*"
-```
-
-#### Export and Reports
-
-```bash
-# Generate HTML report
-dir-analysis-tool --html report.html ~/Projects
-
-# Export to CSV files
-dir-analysis-tool --csv analysis.csv --csv-large large-files.csv --duplicates
-
-# Export duplicates analysis
-dir-analysis-tool --duplicates --csv-duplicates duplicates.csv
-```
-
-#### Interactive Mode
-
-```bash
-# Start interactive explorer
-dir-analysis-tool --interactive
-
-# Watch directory for changes
-dir-analysis-tool --watch ~/Downloads
-```
-
-## 📋 Interactive Mode
-
-Launch interactive mode for a guided analysis experience:
-
-```bash
-dir-analysis-tool -i
-```
-
-Interactive mode features:
-
-- 🔍 **Guided Analysis** - Step-by-step directory analysis
-- 📁 **Directory Navigation** - Easy directory switching
-- 📊 **Multiple Views** - Switch between different result views
-- 💾 **Export Options** - Export results in various formats
-- ⚙️ **Advanced Settings** - Configure analysis options
-- 🔄 **Directory Comparison** - Compare multiple directories
-
-## ⚙️ Configuration
-
-Create a configuration file to customize default behavior:
-
-### `.dir-analyzer.json` or `dir-analyzer.config.json`
+Create `.dir-analyzer.json` in your project root (or run `dat init`):
 
 ```json
 {
-  "excludePatterns": ["node_modules", ".git", "*.tmp"],
-  "largeSizeThreshold": 104857600,
+  "excludePatterns": ["coverage", "tmp", "__pycache__"],
+  "clearDefaultExclusions": false,
+  "largeSizeThresholdMB": 100,
   "enableDuplicateDetection": false,
-  "enableProgressBar": true,
-  "outputFormat": "table",
   "maxDepth": -1,
   "topN": 10,
   "showEmptyFiles": false
 }
 ```
 
-The tool automatically searches for configuration files in the current directory and parent directories.
+`dat` searches for this file starting in the current directory and walking up the tree. CLI flags always override config values.
 
-## 📊 Output Formats
+**Default excluded directories** (unless `clearDefaultExclusions: true`): `node_modules`, `.git`, `.svn`, `.hg`, `dist`, `build`, `.cache`
 
-### Console Output
+---
 
-Rich, colorized console output with:
+## JSON Output
 
-- 📂 Directory summary
-- 📊 File type breakdown
-- 🚨 Large files list
-- 🔄 Duplicate file groups
-- 🌳 Tree view (optional)
+All fields from a `dat analyze . --json` call:
 
-### JSON Output
-
-```json
+```jsonc
 {
-  "path": "/Users/example/Documents",
-  "totalSizeBytes": 1048576000,
-  "totalSizeMB": 1000,
-  "folders": 150,
-  "files": 2500,
+  "path": "/absolute/path",
+  "totalSizeBytes": 12345678,
+  "totalSizeFormatted": "12.3 MB",
+  "totalSizeMB": 12.3,
+  "folders": 42,
+  "files": 512,
   "types": {
-    "images": 450,
-    "documents": 800,
-    "code": 300,
-    "other": 950
+    "images": 10, "videos": 0, "documents": 5,
+    "audio": 0, "code": 480, "archives": 2, "other": 15
   },
-  "largeFiles": [...],
-  "duplicateGroups": [...]
+  "largeFiles": [{ "path": "...", "size": 104857600, "sizeFormatted": "105 MB" }],
+  "duplicateGroups": [{ "hash": "...", "size": 4096, "files": ["...", "..."], "wastedSpace": 4096 }],
+  "duplicateStats": { "totalGroups": 3, "wastedSpace": 12288, "wastedSpaceFormatted": "12.3 kB" },
+  "emptyFiles": [{ "path": "...", "mtime": "2024-01-01T00:00:00.000Z" }],
+  "topLargestFiles": [{ "path": "...", "size": 1048576, "sizeFormatted": "1.05 MB" }],
+  "treeView": "📁 project\n└── ..."
 }
 ```
 
-### HTML Reports
+---
 
-Generate beautiful HTML reports with:
+## Migrating from v1
 
-- 📊 Interactive charts
-- 📈 Size distribution graphs
-- 🗂️ File type breakdowns
-- 📋 Detailed file listings
-- 🎨 Modern, responsive design
+| v1 | v2 |
+|---|---|
+| `dir-analysis-tool` | `dat` (or still `dir-analysis-tool`) |
+| `--path <dir>` | positional argument: `dat <dir>` |
+| `--interactive` | `dat init` (creates config) |
+| `--progress` / `--no-progress` | auto-detected from TTY |
+| `--large-files <bytes>` | `--large-files <mb>` (value now in MB) |
+| `bin/` build output | `dist/` build output |
 
-### CSV Export
+---
 
-Export data to CSV for further analysis in spreadsheet applications.
+## Requirements
 
-## 🔧 API Usage
+- Node.js >= 18.0.0
+- pnpm (for development)
 
-Use programmatically in your Node.js applications:
+## Contributing
 
-```javascript
-import { DirectoryAnalyzer } from 'dir-analysis-tool';
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-const analyzer = new DirectoryAnalyzer();
+## License
 
-const result = await analyzer.analyze({
-  path: '/path/to/analyze',
-  recursive: true,
-  excludePatterns: ['node_modules'],
-  largeSizeThreshold: 100 * 1024 * 1024, // 100MB
-  enableDuplicateDetection: true,
-  topN: 10
-});
-
-console.log(result);
-```
-
-## 🎯 Use Cases
-
-- **🧹 Disk Cleanup** - Identify large files and duplicates consuming disk space
-- **📊 Project Analysis** - Analyze project structure and file distributions
-- **🔍 Storage Audit** - Understand storage usage patterns
-- **📈 Capacity Planning** - Monitor directory growth over time
-- **🚀 Performance Optimization** - Identify bottlenecks in file systems
-- **📋 Documentation** - Generate reports for system documentation
-- **🔄 Backup Planning** - Identify important files and directories
-
-## 🛠️ Requirements
-
-- **Node.js** >= 18.0.0
-- **npm** or **pnpm** or **yarn**
-- **Operating System**: Windows, macOS, or Linux
+[MIT](LICENSE)

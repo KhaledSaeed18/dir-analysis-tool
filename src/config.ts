@@ -1,66 +1,64 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { ConfigOptions } from './types';
+import { readFileSync } from 'node:fs';
+import { access, constants } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { z } from 'zod';
+import type { Config } from './types.js';
 
 const CONFIG_FILE_NAMES = ['.dir-analyzer.json', 'dir-analyzer.config.json'];
 
-export class ConfigManager {
-    private config: ConfigOptions = {};
+const ConfigSchema = z.object({
+    excludePatterns: z.array(z.string()).optional(),
+    clearDefaultExclusions: z.boolean().optional(),
+    largeSizeThresholdMB: z.number().optional(),
+    enableDuplicateDetection: z.boolean().optional(),
+    maxDepth: z.number().int().optional(),
+    topN: z.number().int().optional(),
+    showEmptyFiles: z.boolean().optional(),
+});
 
-    async loadConfig(searchPath: string = process.cwd()): Promise<ConfigOptions> {
-        const configPath = await this.findConfigFile(searchPath);
-        if (configPath) {
+async function findConfigFile(startPath: string): Promise<string | null> {
+    let current = startPath;
+    while (true) {
+        for (const name of CONFIG_FILE_NAMES) {
+            const candidate = join(current, name);
             try {
-                const configContent = await fs.promises.readFile(configPath, 'utf-8');
-                this.config = JSON.parse(configContent);
-                console.log(`Loaded configuration from: ${configPath}`);
-            } catch (error) {
-                console.warn(`Warning: Failed to load config file '${configPath}': ${error}`);
+                await access(candidate, constants.F_OK);
+                return candidate;
+            } catch {
+                // not found here, keep walking up
             }
         }
-        return this.config;
+        const parent = dirname(current);
+        if (parent === current) break;
+        current = parent;
     }
+    return null;
+}
 
-    private async findConfigFile(searchPath: string): Promise<string | null> {
-        let currentPath = searchPath;
+export async function loadConfig(searchPath?: string): Promise<Config> {
+    const configPath = await findConfigFile(searchPath ?? process.cwd());
+    if (!configPath) return {};
 
-        while (currentPath !== path.dirname(currentPath)) {
-            for (const configName of CONFIG_FILE_NAMES) {
-                const configPath = path.join(currentPath, configName);
-                try {
-                    await fs.promises.access(configPath, fs.constants.F_OK);
-                    return configPath;
-                } catch {
-                    // File doesn't exist, continue searching
-                }
-            }
-            currentPath = path.dirname(currentPath);
+    try {
+        const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
+        const parsed = ConfigSchema.safeParse(raw);
+        if (!parsed.success) {
+            console.warn(`Warning: invalid config at ${configPath} — using defaults`);
+            return {};
         }
-
-        return null;
+        return parsed.data as Config;
+    } catch {
+        console.warn(`Warning: could not read config at ${configPath}`);
+        return {};
     }
+}
 
-    getConfig(): ConfigOptions {
-        return this.config;
+export function mergeConfig(fileConfig: Config, cliOptions: Partial<Config>): Config {
+    const merged: Config = { ...fileConfig };
+    for (const [key, value] of Object.entries(cliOptions) as [keyof Config, unknown][]) {
+        if (value !== undefined && value !== null) {
+            (merged as Record<string, unknown>)[key] = value;
+        }
     }
-
-    mergeWithCliOptions(cliOptions: any): ConfigOptions {
-        return {
-            ...this.config,
-            ...Object.fromEntries(
-                Object.entries(cliOptions).filter(([_, value]) => value !== undefined)
-            )
-        };
-    }
-
-    static getDefaultConfig(): ConfigOptions {
-        return {
-            excludePatterns: [],
-            largeSizeThreshold: 100 * 1024 * 1024,
-            enableDuplicateDetection: false,
-            enableProgressBar: true,
-            outputFormat: 'table',
-            maxDepth: -1
-        };
-    }
+    return merged;
 }

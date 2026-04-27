@@ -1,47 +1,64 @@
-import { ProgressCallback } from './types';
+const BAR_LENGTH = 40;
+const UPDATE_INTERVAL_MS = 100;
 
 export class ProgressBar {
-    private static readonly BAR_LENGTH = 40;
-    private lastUpdateTime = 0;
-    private readonly updateInterval = 100;
+    private lastUpdate = 0;
 
-    show(current: number, total: number, currentPath?: string): void {
+    static isTTY(): boolean {
+        return process.stdout.isTTY === true;
+    }
+
+    show(current: number, total: number, label?: string): void {
+        if (!ProgressBar.isTTY()) return;
+
         const now = Date.now();
-        if (now - this.lastUpdateTime < this.updateInterval && current !== total) {
-            return;
-        }
-        this.lastUpdateTime = now;
+        if (now - this.lastUpdate < UPDATE_INTERVAL_MS && current !== total) return;
+        this.lastUpdate = now;
 
-        const percentage = Math.min(100, Math.round((current / total) * 100));
-        const filled = Math.round((current / total) * ProgressBar.BAR_LENGTH);
-        const empty = ProgressBar.BAR_LENGTH - filled;
-
-        const bar = '█'.repeat(filled) + '░'.repeat(empty);
-        const progressText = `[${bar}] ${percentage}% (${current}/${total})`;
+        const pct = Math.min(100, Math.round((current / total) * 100));
+        const filled = Math.round((current / total) * BAR_LENGTH);
+        const bar = '█'.repeat(filled) + '░'.repeat(BAR_LENGTH - filled);
+        const progressText = `[${bar}] ${pct}% (${current}/${total})`;
 
         let output = `\r${progressText}`;
-
-        if (currentPath) {
-            const maxPathLength = process.stdout.columns ? process.stdout.columns - progressText.length - 5 : 50;
-            const displayPath = currentPath.length > maxPathLength
-                ? '...' + currentPath.slice(-(maxPathLength - 3))
-                : currentPath;
-            output += ` ${displayPath}`;
+        if (label) {
+            const cols = process.stdout.columns ?? 80;
+            const maxLen = cols - progressText.length - 2;
+            const display = label.length > maxLen ? '...' + label.slice(-(maxLen - 3)) : label;
+            output += ` ${display}`;
         }
 
         process.stdout.write(output);
-
-        if (current === total) {
-            process.stdout.write('\n');
-        }
+        if (current === total) process.stdout.write('\n');
     }
 
-    static createCallback(enabled: boolean = true): ProgressCallback | undefined {
-        if (!enabled) return undefined;
+    static createHashCallback(
+        bar: ProgressBar
+    ): (done: number, total: number) => void {
+        return (done, total) => bar.show(done, total, 'hashing files');
+    }
+}
 
-        const progressBar = new ProgressBar();
-        return (current: number, total: number, currentPath?: string) => {
-            progressBar.show(current, total, currentPath);
-        };
+export class ScanCounter {
+    private count = 0;
+    private timer: ReturnType<typeof setInterval> | null = null;
+
+    start(label: string): void {
+        if (!ProgressBar.isTTY()) return;
+        this.timer = setInterval(() => {
+            process.stdout.write(`\r${label}: ${this.count.toLocaleString()} files scanned...`);
+        }, 150);
+    }
+
+    increment(): void {
+        this.count++;
+    }
+
+    stop(): void {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        if (ProgressBar.isTTY()) process.stdout.write('\r\x1b[K');
     }
 }

@@ -1,12 +1,11 @@
 # Dependencies
 node_modules/
-pnpm-lock.yaml
 
 # Build outputs
-bin/*.js
-bin/*.js.map
-bin/*.d.ts
-bin/*.d.ts.map
+dist/
+
+# Old build dir (v1)
+bin/
 
 # Logs
 *.log

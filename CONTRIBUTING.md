@@ -55,20 +55,74 @@ This project and everyone participating in it is governed by our Code of Conduct
    ```bash
    # Run in development mode
    pnpm dev --help
-   
+
    # Or test the built version
-   node bin/index.js --help
+   pnpm build
+   node dist/index.js --help
    ```
+
+## Commit Message Format
+
+This project uses **Conventional Commits**. Every commit must follow this format:
+
+```
+<type>(<optional scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+
+| Type | When to use |
+|---|---|
+| `feat` | A new feature (triggers a minor version bump) |
+| `fix` | A bug fix (triggers a patch bump) |
+| `docs` | Documentation only |
+| `refactor` | Code restructuring without behaviour change |
+| `perf` | Performance improvement |
+| `test` | Adding or fixing tests |
+| `build` | Build system or dependency changes |
+| `ci` | CI/CD changes |
+| `chore` | Maintenance (no release) |
+| `revert` | Reverts a previous commit |
+
+**Breaking changes** — append `!` after the type or add `BREAKING CHANGE:` in the footer. This triggers a major version bump.
+
+```bash
+# Examples
+git commit -m "feat: add --format flag to analyze command"
+git commit -m "fix: streaming hasher now handles empty files"
+git commit -m "feat!: rename --large-files threshold unit to MB"
+git commit -m "docs: update migration guide for v2"
+```
+
+The `commit-msg` hook (installed via Husky) will reject commits that do not follow this format.
+
+## Release Process
+
+Releases are **fully automated** via [semantic-release](https://github.com/semantic-release/semantic-release).
+
+1. Merge a branch to `main`
+2. GitHub Actions runs CI (lint, typecheck, build, smoke test)
+3. If CI passes, semantic-release analyzes commits and:
+   - Determines the next version from commit types
+   - Updates `package.json` and `CHANGELOG.md`
+   - Publishes to npm
+   - Creates a GitHub release with generated notes
+
+You never need to manually bump versions, tag commits, or `npm publish`.
 
 ## Making Changes
 
 ### Branch Naming Convention
 
-- `feature/description` - for new features
-- `fix/description` - for bug fixes
-- `docs/description` - for documentation updates
-- `refactor/description` - for code refactoring
-- `test/description` - for adding tests
+- `feature/description` — for new features
+- `fix/description` — for bug fixes
+- `docs/description` — for documentation updates
+- `refactor/description` — for code refactoring
+- `test/description` — for adding tests
 
 ### Workflow
 
@@ -83,17 +137,20 @@ This project and everyone participating in it is governed by our Code of Conduct
    - Add tests for new functionality
    - Update documentation as needed
 
-3. **Build and test**
+3. **Build, type-check, and lint**
 
    ```bash
    pnpm build
+   pnpm typecheck
+   pnpm lint
    ```
 
-4. **Commit your changes**
+4. **Commit your changes using conventional commit format**
 
    ```bash
    git add .
    git commit -m "feat: add new feature description"
+   # The commit-msg hook will validate the format automatically
    ```
 
 ## Testing
@@ -104,28 +161,31 @@ Test your changes with various scenarios:
 
 ```bash
 # Test basic functionality
-pnpm dev /path/to/test/directory
+node dist/index.js analyze /path/to/test/directory
 
 # Test different options
-pnpm dev --json --large-files --duplicates
-pnpm dev --interactive
-pnpm dev --tree --top-n 20
-pnpm dev --html report.html
+node dist/index.js analyze . --json
+node dist/index.js analyze . --duplicates --top-n 10
+node dist/index.js analyze . --tree
+node dist/index.js analyze . --html report.html
+node dist/index.js watch .
+node dist/index.js compare dir1 dir2
+node dist/index.js init
 ```
 
 ### Test Checklist
 
-- [ ] Basic directory analysis works
-- [ ] JSON output is valid
-- [ ] Interactive mode functions correctly
-- [ ] HTML report generation works
-- [ ] CSV export functions properly
-- [ ] Large file detection works
-- [ ] Duplicate detection works
-- [ ] Tree view displays correctly
-- [ ] Progress bar shows during analysis
-- [ ] Configuration file loading works
-- [ ] Cross-platform compatibility (if possible)
+- [ ] Basic directory analysis works (`dat analyze .`)
+- [ ] JSON output is valid and pipe-safe (`dat analyze . --json | jq .files`)
+- [ ] HTML report generation works (`dat analyze . --html`)
+- [ ] CSV export works (`dat analyze . --csv`)
+- [ ] Large file detection works (`dat analyze . --large-files 10`)
+- [ ] Duplicate detection works (`dat analyze . --duplicates`)
+- [ ] Tree view displays correctly (`dat analyze . --tree`)
+- [ ] Progress counter shows in TTY, suppressed in pipe
+- [ ] Config file loading works (`dat init` then `dat analyze .`)
+- [ ] Watch mode functions (`dat watch .`)
+- [ ] Compare works (`dat compare dir1 dir2`)
 
 ## Submitting Changes
 
