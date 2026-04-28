@@ -1,3 +1,10 @@
+## [2.0.4](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.3...v2.0.4) (2026-04-28)
+
+
+### Bug Fixes
+
+* **release:** restore NPM_TOKEN in release step environment ([e29f8f7](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/e29f8f7db4aba5fd0486caacffdcd7146626a569))
+
 ## [2.0.3](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.2...v2.0.3) (2026-04-28)
 
 
