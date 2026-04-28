@@ -1,3 +1,10 @@
+## [2.0.6](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.5...v2.0.6) (2026-04-28)
+
+
+### Bug Fixes
+
+* **dependencies:** update package versions to specific ranges ([bce651e](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/bce651ec04c59a28c4a5b03ef8f27023c48ed985))
+
 ## [2.0.5](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.4...v2.0.5) (2026-04-28)
 
 
