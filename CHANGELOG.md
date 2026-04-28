@@ -1,3 +1,10 @@
+## [2.0.3](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.2...v2.0.3) (2026-04-28)
+
+
+### Bug Fixes
+
+* **release:** remove registry-url from setup-node step in release workflow ([0d1f8e7](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/0d1f8e7c1e882b62de6f4a46fed00b52c11ea682))
+
 ## [2.0.2](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.1...v2.0.2) (2026-04-28)
 
 
