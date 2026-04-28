@@ -9,22 +9,22 @@ importers:
   .:
     dependencies:
       '@clack/prompts':
-        specifier: latest
+        specifier: ^1.2.0
         version: 1.2.0
       chalk:
-        specifier: latest
+        specifier: ^5.6.2
         version: 5.6.2
       chokidar:
-        specifier: latest
+        specifier: ^5.0.0
         version: 5.0.0
       commander:
-        specifier: latest
+        specifier: ^14.0.3
         version: 14.0.3
       pretty-bytes:
-        specifier: latest
+        specifier: ^7.1.0
         version: 7.1.0
       zod:
-        specifier: latest
+        specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
       '@commitlint/cli':
