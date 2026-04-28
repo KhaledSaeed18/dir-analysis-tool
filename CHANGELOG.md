@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.1...v2.0.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* **release:** remove redundant NPM_TOKEN and NODE_AUTH_TOKEN from release workflow ([2887d57](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/2887d5773274be5cbe7c4e1aa3e64e540d7f9e37))
+
 ## [2.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.0...v2.0.1) (2026-04-27)
 
 
