@@ -1,3 +1,10 @@
+## [2.0.5](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.4...v2.0.5) (2026-04-28)
+
+
+### Bug Fixes
+
+* **release:** remove id-token permission from workflow ([1cc498d](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/1cc498d238faa3c1e4576d220443b0341e596fac))
+
 ## [2.0.4](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.3...v2.0.4) (2026-04-28)
 
 
