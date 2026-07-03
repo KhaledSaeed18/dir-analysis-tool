@@ -1,3 +1,5 @@
+## [2.0.7](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.6...v2.0.7) (2026-07-03)
+
 ## [2.0.6](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.5...v2.0.6) (2026-04-28)
 
 
