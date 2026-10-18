@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+          # No registry-url: it writes an .npmrc with a placeholder token that would shadow NPM_TOKEN.
       - run: pnpm install --frozen-lockfile
       - name: Release
         env:
