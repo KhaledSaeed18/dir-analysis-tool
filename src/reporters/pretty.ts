@@ -133,7 +133,13 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
     if (sum.excluded > 0) skipped.push(`${formatCount(sum.excluded)} excluded`);
     if (sum.filtered > 0) skipped.push(`${formatCount(sum.filtered)} filtered`);
     if (sum.errors > 0) skipped.push(s.yellow(`${formatCount(sum.errors)} unreadable`));
-    if (skipped.length > 0) row('Skipped', skipped.join(s.dim(' · ')));
+    if (skipped.length > 0) {
+        const hint =
+            sum.excluded > 0 && result.settings.defaultExcludes
+                ? s.dim('  (--all includes .git and node_modules)')
+                : '';
+        row('Skipped', skipped.join(s.dim(' · ')) + hint);
+    }
 
     if (options.types !== false && sum.files > 0) renderTypes(r, result);
     if (options.extensions && result.extensions.length > 0) renderExtensions(r, result);
