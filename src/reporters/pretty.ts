@@ -384,7 +384,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
     if (result.changed.count > 0) {
         r.heading(
             'Changed',
-            `${plural(result.changed.count, 'file')} · ${formatBytes(result.changed.delta, r.units)} net`
+            `${plural(result.changed.count, 'file')} · ${result.changed.delta > 0 ? '+' : ''}${formatBytes(result.changed.delta, r.units)} net`
         );
         for (const c of result.changed.items.slice(0, r.limit)) {
             const detail =

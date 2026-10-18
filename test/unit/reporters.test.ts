@@ -17,13 +17,14 @@ import { bytes, fixture } from '../helpers/fixture.ts';
 async function fullResult() {
     const root = await fixture({
         'src/app.ts': 'x'.repeat(200),
-        'src/<script>.ts': 'x',
+        // Legal on every platform, but each needs escaping in some format.
+        "src/a&b's.ts": 'x',
         'assets/a.png': bytes(4000),
         'assets/copy.png': bytes(4000),
         'old/notes.txt': { content: 'n', mtime: '2015-01-01T00:00:00Z' },
         'empty.txt': '',
         hollow: { dir: true },
-        'pipe|name.md': 'x',
+        'tick`name.md': 'x',
     });
     return analyze(root, {
         largeFiles: '1k',
@@ -97,7 +98,7 @@ describe('markdown', () => {
         expect(md).toMatch(/^## Directory analysis/);
         expect(md).toContain('| Size |');
         expect(md).toContain('### Budgets ❌ 1 failed');
-        expect(md).toContain('`pipe\\|name.md`');
+        expect(md).toContain('`` tick`name.md ``');
         const root = await fixture({ 'a/x': 'x', 'b/y': 'yy' });
         const cmp = renderComparisonMarkdown(await compare(join(root, 'a'), join(root, 'b')));
         expect(cmp).toContain('### Added');
@@ -149,8 +150,8 @@ describe('html', () => {
         expect(html).toContain("default-src 'none'");
         expect(html).not.toMatch(/<script[^>]+src=/);
         expect(html).not.toMatch(/https?:\/\/(?!github\.com)/);
-        expect(html).toContain('&lt;script&gt;.ts');
-        expect(html).not.toContain('<script>.ts');
+        expect(html).toContain('a&amp;b&#39;s.ts');
+        expect(html).not.toContain("a&b's.ts");
         expect(html).toContain('<svg class="donut"');
         expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
             '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;'

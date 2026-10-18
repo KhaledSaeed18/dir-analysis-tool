@@ -42,6 +42,16 @@ describe('dat (analyze)', () => {
         expect(json<AnalysisResult>(sized).largeFiles?.count).toBe(1);
     });
 
+    it('reads a bare --large-files number as MiB, like v2', async () => {
+        const root = await fixture({ 'big.bin': bytes(2 * 1024 * 1024), 'small.bin': bytes(10) });
+        const result = await cli([root, '-l', '1', '--json']);
+        expect(json<AnalysisResult>(result).largeFiles).toMatchObject({
+            threshold: 1024 * 1024,
+            count: 1,
+        });
+        expect(result.stderr).toContain('read as 1 MiB');
+    });
+
     it('applies file exclusions (broken in v2)', async () => {
         const root = await fixture({ 'a.log': 'x', 'b.txt': 'x', 'logs/c.log': 'x' });
         const result = await cli([root, '-e', '*.log', '--json']);

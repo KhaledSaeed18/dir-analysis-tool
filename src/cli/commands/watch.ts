@@ -10,6 +10,7 @@ import {
     addOutputOptions,
     addReportOptions,
     addScanOptions,
+    applyLegacyLargeFiles,
     explicitOptions,
     integer,
     read,
@@ -61,6 +62,7 @@ export function registerWatch(program: Command, ctx: Context): void {
 
     command.action(async (directory: string, _options: unknown, cmd: Command) => {
         const cli = explicitOptions(cmd);
+        applyLegacyLargeFiles(cli, (message) => ctx.warn(message));
         const target = ctx.resolvePath(directory);
         const { config } = await ctx.loadConfig(cli, target);
         const display = resolveDisplay(cli, config);

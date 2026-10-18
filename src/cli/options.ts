@@ -249,6 +249,22 @@ export function explicitOptions(command: Command): Record<string, unknown> {
     return values;
 }
 
+/**
+ * v2 read `--large-files 100` as 100 MB. A threshold of a few bytes is never
+ * what anyone means, so a bare number keeps that meaning (in MiB), with a hint.
+ */
+export function applyLegacyLargeFiles(
+    cli: Record<string, unknown>,
+    warn: (message: string) => void
+): void {
+    const value = cli['largeFiles'];
+    if (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value)) return;
+    cli['largeFiles'] = `${value}MiB`;
+    warn(
+        `--large-files ${value} is read as ${value} MiB, as in v2. Add a unit to be explicit, for example --large-files ${value}MB.`
+    );
+}
+
 /** Typed readers for loosely typed commander values. */
 export const read = {
     string: (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined),
