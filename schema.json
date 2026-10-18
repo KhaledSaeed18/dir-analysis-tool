@@ -1,0 +1,176 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://unpkg.com/dir-analysis-tool/schema.json",
+    "title": "dir-analysis-tool configuration",
+    "description": "Configuration for dir-analysis-tool (dat). Place it in .dir-analyzer.json or dir-analyzer.config.json.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "JSON Schema reference for editor support."
+        },
+        "exclude": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Gitignore-style patterns to skip, relative to the analyzed directory.",
+            "examples": [
+                [
+                    "*.log",
+                    "coverage/",
+                    "docs/**/*.pdf"
+                ]
+            ]
+        },
+        "defaultExcludes": {
+            "type": "boolean",
+            "description": "Skip .git, .hg, .svn, and node_modules. Default: true."
+        },
+        "gitignore": {
+            "type": "boolean",
+            "description": "Honor .gitignore files. Default: false."
+        },
+        "maxDepth": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Directory levels to descend; 0 scans only the top-level files. Default: unlimited."
+        },
+        "followSymlinks": {
+            "type": "boolean",
+            "description": "Follow symbolic links (cycles are detected). Default: false."
+        },
+        "countHardlinks": {
+            "type": "boolean",
+            "description": "Count every hard link separately instead of counting shared data once. Default: false."
+        },
+        "minSize": {
+            "anyOf": [
+                {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                {
+                    "type": "string",
+                    "pattern": "^\\s*(\\d+(\\.\\d+)?|\\.\\d+)\\s*([kKmMgGtTpP]([iI]?[bB])?|[bB])?\\s*$"
+                }
+            ],
+            "description": "Only include files at least this large. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\"."
+        },
+        "maxSize": {
+            "anyOf": [
+                {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                {
+                    "type": "string",
+                    "pattern": "^\\s*(\\d+(\\.\\d+)?|\\.\\d+)\\s*([kKmMgGtTpP]([iI]?[bB])?|[bB])?\\s*$"
+                }
+            ],
+            "description": "Only include files at most this large. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\"."
+        },
+        "newerThan": {
+            "type": "string",
+            "description": "Only include files modified after this point. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD)."
+        },
+        "olderThan": {
+            "type": "string",
+            "description": "Only include files modified before this point. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD)."
+        },
+        "top": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Length of the largest files and folders lists; 0 hides them. Default: 10."
+        },
+        "largeFiles": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                {
+                    "type": "string",
+                    "pattern": "^\\s*(\\d+(\\.\\d+)?|\\.\\d+)\\s*([kKmMgGtTpP]([iI]?[bB])?|[bB])?\\s*$"
+                }
+            ],
+            "description": "Report files at least this large; true uses 100 MiB. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\".",
+            "examples": [
+                "50MB"
+            ]
+        },
+        "duplicates": {
+            "type": "boolean",
+            "description": "Find files with identical contents."
+        },
+        "minDuplicateSize": {
+            "anyOf": [
+                {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                {
+                    "type": "string",
+                    "pattern": "^\\s*(\\d+(\\.\\d+)?|\\.\\d+)\\s*([kKmMgGtTpP]([iI]?[bB])?|[bB])?\\s*$"
+                }
+            ],
+            "description": "Ignore files smaller than this when looking for duplicates. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\"."
+        },
+        "empty": {
+            "type": "boolean",
+            "description": "Report empty files and empty folders."
+        },
+        "stale": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "Report files not modified since this point; true uses one year. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD).",
+            "examples": [
+                "2y"
+            ]
+        },
+        "extensions": {
+            "type": "boolean",
+            "description": "Show the extension breakdown."
+        },
+        "tree": {
+            "type": "boolean",
+            "description": "Show a size tree."
+        },
+        "treeDepth": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Levels shown by the tree. Default: 3."
+        },
+        "units": {
+            "enum": [
+                "iec",
+                "si"
+            ],
+            "description": "Size units: \"iec\" (KiB, MiB; powers of 1024) or \"si\" (kB, MB; powers of 1000)."
+        },
+        "budgets": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Rules that must hold, or the run exits with code 2. Metrics: size, disk, files, dirs, largest, large, duplicates, wasted, empty, stale, errors.",
+            "examples": [
+                [
+                    "size<=500MB",
+                    "duplicates=0",
+                    "largest<50MB"
+                ]
+            ]
+        }
+    }
+}
