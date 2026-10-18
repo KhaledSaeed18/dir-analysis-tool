@@ -1,9 +1,8 @@
 name: CI
 
+# Pull requests run this directly; pushes to main run it through the release workflow.
 on:
   pull_request:
-  push:
-    branches-ignore: [main] # main is verified by the release workflow, which reuses this one
   workflow_call:
   workflow_dispatch:
 
