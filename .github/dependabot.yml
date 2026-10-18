@@ -11,6 +11,10 @@ updates:
       prefix: fix
       prefix-development: build
       include: scope
+    ignore:
+      # v10 needs conventional-changelog-writer 9, which semantic-release's notes generator does not use yet.
+      - dependency-name: conventional-changelog-conventionalcommits
+        update-types: [version-update:semver-major]
     groups:
       tooling:
         dependency-type: development
