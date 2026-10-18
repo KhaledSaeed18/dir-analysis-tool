@@ -1,48 +1,69 @@
 {
     "name": "dir-analysis-tool",
     "version": "2.0.7",
-    "description": "A fast, memory-safe CLI for directory analysis — file classification, duplicate detection, large-file identification, HTML reports, and multiple export formats.",
+    "description": "Fast, memory-bounded directory analysis for your terminal and CI: largest folders and files, type and extension breakdowns, staged duplicate detection, size budgets, directory diffs, and self-contained HTML, Markdown, JSON, and CSV reports.",
     "type": "module",
-    "main": "dist/index.js",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./schema.json": "./schema.json",
+        "./package.json": "./package.json"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "bin": {
-        "dat": "dist/index.js",
-        "dir-analysis-tool": "dist/index.js"
+        "dat": "dist/cli.js",
+        "dir-analysis-tool": "dist/cli.js"
     },
     "files": [
-        "dist/**/*",
-        "README.md",
-        "LICENSE"
+        "dist",
+        "schema.json"
     ],
+    "sideEffects": false,
     "scripts": {
-        "build": "tsup",
-        "dev": "tsx src/index.ts",
+        "build": "tsdown",
+        "dev": "node src/cli/main.ts",
         "typecheck": "tsc --noEmit",
-        "lint": "eslint src",
-        "lint:fix": "eslint src --fix",
-        "format": "prettier --write src",
-        "format:check": "prettier --check src",
-        "prepublishOnly": "pnpm build",
-        "prepare": "husky"
+        "lint": "oxlint --type-aware --deny-warnings",
+        "lint:fix": "oxlint --type-aware --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "schema": "node scripts/generate-schema.ts",
+        "bench": "node scripts/bench.ts",
+        "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build && pnpm test:coverage && pnpm check:package",
+        "check:package": "publint --strict && attw --pack . --profile esm-only",
+        "prepare": "husky",
+        "prepublishOnly": "pnpm build"
     },
     "keywords": [
         "cli",
         "directory",
         "analyzer",
-        "file-system",
-        "typescript",
-        "disk-cleanup",
+        "disk-usage",
+        "du",
+        "disk-space",
+        "duplicate-files",
         "duplicate-detection",
+        "large-files",
         "file-classification",
         "storage-audit",
-        "directory-analysis",
-        "disk-usage",
-        "large-files",
-        "html-reports",
+        "size-budget",
+        "directory-diff",
+        "html-report",
+        "markdown-report",
         "csv-export",
-        "tree-view",
+        "gitignore",
         "cross-platform"
     ],
-    "author": "Khaled Saeed",
+    "author": {
+        "name": "Khaled Saeed",
+        "url": "https://github.com/KhaledSaeed18"
+    },
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -53,34 +74,39 @@
     },
     "homepage": "https://github.com/KhaledSaeed18/dir-analysis-tool#readme",
     "dependencies": {
-        "@clack/prompts": "^1.2.0",
-        "chalk": "^5.6.2",
-        "chokidar": "^5.0.0",
-        "commander": "^14.0.3",
-        "pretty-bytes": "^7.1.0",
-        "zod": "^4.3.6"
+        "@clack/prompts": "^1.8.1",
+        "commander": "^15.0.0",
+        "ignore": "^7.0.12"
     },
     "devDependencies": {
-        "@commitlint/cli": "latest",
-        "@commitlint/config-conventional": "latest",
-        "@eslint/js": "latest",
-        "@semantic-release/changelog": "^6.0.3",
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@commitlint/cli": "^21.2.4",
+        "@commitlint/config-conventional": "^21.2.4",
+        "@semantic-release/changelog": "^7.0.0",
         "@semantic-release/commit-analyzer": "^13.0.1",
-        "@semantic-release/git": "^10.0.1",
-        "@semantic-release/github": "^12.0.6",
-        "@semantic-release/npm": "^13.1.5",
-        "@semantic-release/release-notes-generator": "^14.1.0",
-        "@types/node": "latest",
-        "eslint": "latest",
-        "husky": "latest",
-        "prettier": "latest",
-        "semantic-release": "^25.0.3",
-        "tsup": "latest",
-        "tsx": "latest",
-        "typescript": "latest",
-        "typescript-eslint": "latest"
+        "@semantic-release/git": "^11.0.1",
+        "@semantic-release/github": "^12.0.10",
+        "@semantic-release/npm": "^13.2.0",
+        "@semantic-release/release-notes-generator": "^14.1.1",
+        "@types/node": "^22.20.5",
+        "@vitest/coverage-v8": "^5.0.5",
+        "conventional-changelog-conventionalcommits": "^10.4.1",
+        "husky": "^9.1.7",
+        "oxlint": "^1.88.0",
+        "oxlint-tsgolint": "^7.0.2004",
+        "prettier": "^3.9.10",
+        "publint": "^0.3.25",
+        "semantic-release": "^25.0.9",
+        "tsdown": "^0.23.1",
+        "typescript": "^7.0.2",
+        "vitest": "^5.0.5"
     },
     "engines": {
-        "node": ">=20.0.0"
+        "node": ">=22.12.0"
+    },
+    "packageManager": "pnpm@12.14.0",
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
     }
 }

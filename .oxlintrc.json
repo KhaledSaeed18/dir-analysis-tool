@@ -1,0 +1,50 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript", "unicorn", "oxc", "import", "node", "promise", "vitest"],
+    "categories": {
+        "correctness": "error",
+        "suspicious": "error",
+        "perf": "warn"
+    },
+    "env": {
+        "node": true,
+        "es2024": true
+    },
+    "rules": {
+        "typescript/no-floating-promises": "error",
+        "typescript/no-misused-promises": "error",
+        "typescript/await-thenable": "error",
+        "typescript/no-unnecessary-type-assertion": "error",
+        "typescript/consistent-type-imports": "error",
+        "typescript/no-explicit-any": "error",
+        "typescript/switch-exhaustiveness-check": "error",
+        "eqeqeq": "error",
+        "curly": ["error", "multi-line"],
+        "no-console": "error",
+        "prefer-const": "error",
+        "no-var": "error",
+        "import/no-cycle": "error",
+        "unicorn/prefer-node-protocol": "error",
+        "unicorn/no-array-for-each": "off",
+        "unicorn/no-array-reduce": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/no-nested-ternary": "off",
+        "oxc/no-map-spread": "off",
+        "no-await-in-loop": "off",
+        "unicorn/no-array-sort": "off",
+        "unicorn/no-array-reverse": "off",
+        "typescript/consistent-return": "off"
+    },
+    "overrides": [
+        {
+            "files": ["test/**/*.ts", "scripts/**/*.ts"],
+            "rules": {
+                "typescript/no-unsafe-type-assertion": "off",
+                "typescript/no-unnecessary-type-parameters": "off",
+                "vitest/require-mock-type-parameters": "off",
+                "no-console": "off"
+            }
+        }
+    ],
+    "ignorePatterns": ["dist/**", "coverage/**", "node_modules/**"]
+}
