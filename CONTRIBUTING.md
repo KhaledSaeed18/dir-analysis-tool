@@ -1,362 +1,72 @@
-# Contributing to dir-analysis-tool
+# Contributing
 
-Thank you for your interest in contributing to dir-analysis-tool! We welcome contributions from the community and are grateful for your support.
+Thanks for helping improve dir-analysis-tool. Bug reports, ideas, and pull requests are all welcome.
 
-## 📋 Table of Contents
+## Setup
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Setup](#development-setup)
-- [Making Changes](#making-changes)
-- [Testing](#testing)
-- [Submitting Changes](#submitting-changes)
-- [Code Style Guidelines](#code-style-guidelines)
-- [Reporting Issues](#reporting-issues)
-- [Feature Requests](#feature-requests)
-- [Documentation](#documentation)
-
-## Code of Conduct
-
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code. Please be respectful and constructive in all interactions.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= 18.0.0
-- pnpm (recommended), npm, or yarn
-- Git
-- TypeScript knowledge (for code contributions)
-
-### Development Setup
-
-1. **Fork the repository**
-
-   ```bash
-   # Click the "Fork" button on GitHub, then clone your fork
-   git clone https://github.com/KhaledSaeed18/dir-analysis-tool.git
-   cd dir-analysis-tool
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pnpm install
-   ```
-
-3. **Build the project**
-
-   ```bash
-   pnpm build
-   ```
-
-4. **Test the CLI**
-
-   ```bash
-   # Run in development mode
-   pnpm dev --help
-
-   # Or test the built version
-   pnpm build
-   node dist/index.js --help
-   ```
-
-## Commit Message Format
-
-This project uses **Conventional Commits**. Every commit must follow this format:
-
-```
-<type>(<optional scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-**Types:**
-
-| Type | When to use |
-|---|---|
-| `feat` | A new feature (triggers a minor version bump) |
-| `fix` | A bug fix (triggers a patch bump) |
-| `docs` | Documentation only |
-| `refactor` | Code restructuring without behaviour change |
-| `perf` | Performance improvement |
-| `test` | Adding or fixing tests |
-| `build` | Build system or dependency changes |
-| `ci` | CI/CD changes |
-| `chore` | Maintenance (no release) |
-| `revert` | Reverts a previous commit |
-
-**Breaking changes** — append `!` after the type or add `BREAKING CHANGE:` in the footer. This triggers a major version bump.
+You need Node.js 22.18 or later (the sources run directly through Node's built-in TypeScript support) and pnpm. The repository pins its pnpm version through the `packageManager` field.
 
 ```bash
-# Examples
-git commit -m "feat: add --format flag to analyze command"
-git commit -m "fix: streaming hasher now handles empty files"
-git commit -m "feat!: rename --large-files threshold unit to MB"
-git commit -m "docs: update migration guide for v2"
+git clone https://github.com/KhaledSaeed18/dir-analysis-tool.git
+cd dir-analysis-tool
+pnpm install
+pnpm dev ~/some/directory -d         # run the CLI from source
 ```
 
-The `commit-msg` hook (installed via Husky) will reject commits that do not follow this format.
+## Scripts
 
-## Release Process
+| Script                          | What it does                                              |
+| ------------------------------- | --------------------------------------------------------- |
+| `pnpm dev <args>`               | Run the CLI from `src/` without building                  |
+| `pnpm build`                    | Bundle `dist/` with tsdown, including type declarations   |
+| `pnpm test` / `pnpm test:watch` | Run the test suite once, or in watch mode                 |
+| `pnpm test:coverage`            | Run the tests with coverage thresholds                    |
+| `pnpm typecheck`                | Type-check with TypeScript 7                              |
+| `pnpm lint` / `pnpm lint:fix`   | Lint with oxlint, including type-aware rules              |
+| `pnpm format`                   | Format with Prettier                                      |
+| `pnpm schema`                   | Regenerate `schema.json` after changing config fields     |
+| `pnpm bench [directory]`        | Benchmark a scan                                          |
+| `pnpm check`                    | Everything CI runs. Run it before opening a pull request. |
 
-Releases are **fully automated** via [semantic-release](https://github.com/semantic-release/semantic-release).
+## Project layout
 
-1. Merge a branch to `main`
-2. GitHub Actions runs CI (lint, typecheck, build, smoke test)
-3. If CI passes, semantic-release analyzes commits and:
-   - Determines the next version from commit types
-   - Updates `package.json` and `CHANGELOG.md`
-   - Publishes to npm
-   - Creates a GitHub release with generated notes
-
-You never need to manually bump versions, tag commits, or `npm publish`.
-
-## Making Changes
-
-### Branch Naming Convention
-
-- `feature/description` — for new features
-- `fix/description` — for bug fixes
-- `docs/description` — for documentation updates
-- `refactor/description` — for code refactoring
-- `test/description` — for adding tests
-
-### Workflow
-
-1. **Create a new branch**
-
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make your changes**
-   - Follow the existing code style
-   - Add tests for new functionality
-   - Update documentation as needed
-
-3. **Build, type-check, and lint**
-
-   ```bash
-   pnpm build
-   pnpm typecheck
-   pnpm lint
-   ```
-
-4. **Commit your changes using conventional commit format**
-
-   ```bash
-   git add .
-   git commit -m "feat: add new feature description"
-   # The commit-msg hook will validate the format automatically
-   ```
-
-## Testing
-
-### Manual Testing
-
-Test your changes with various scenarios:
-
-```bash
-# Test basic functionality
-node dist/index.js analyze /path/to/test/directory
-
-# Test different options
-node dist/index.js analyze . --json
-node dist/index.js analyze . --duplicates --top-n 10
-node dist/index.js analyze . --tree
-node dist/index.js analyze . --html report.html
-node dist/index.js watch .
-node dist/index.js compare dir1 dir2
-node dist/index.js init
-```
-
-### Test Checklist
-
-- [ ] Basic directory analysis works (`dat analyze .`)
-- [ ] JSON output is valid and pipe-safe (`dat analyze . --json | jq .files`)
-- [ ] HTML report generation works (`dat analyze . --html`)
-- [ ] CSV export works (`dat analyze . --csv`)
-- [ ] Large file detection works (`dat analyze . --large-files 10`)
-- [ ] Duplicate detection works (`dat analyze . --duplicates`)
-- [ ] Tree view displays correctly (`dat analyze . --tree`)
-- [ ] Progress counter shows in TTY, suppressed in pipe
-- [ ] Config file loading works (`dat init` then `dat analyze .`)
-- [ ] Watch mode functions (`dat watch .`)
-- [ ] Compare works (`dat compare dir1 dir2`)
-
-## Submitting Changes
-
-### Pull Request Process
-
-1. **Ensure your branch is up to date**
-
-   ```bash
-   git checkout main
-   git pull upstream main
-   git checkout your-branch
-   git rebase main
-   ```
-
-2. **Push your changes**
-
-   ```bash
-   git push origin your-branch
-   ```
-
-3. **Create a Pull Request**
-   - Use the pull request template
-   - Provide a clear title and description
-   - Reference any related issues
-   - Include screenshots for UI changes
-
-### Pull Request Requirements
-
-- [ ] Code builds without errors
-- [ ] Manual testing completed
-- [ ] Documentation updated (if applicable)
-- [ ] CHANGELOG.md updated (for significant changes)
-- [ ] Commit messages follow conventional format
-
-## Code Style Guidelines
-
-### TypeScript/JavaScript
-
-- Use TypeScript for all new code
-- Follow existing naming conventions
-- Use meaningful variable and function names
-- Add JSDoc comments for public APIs
-- Prefer `const` over `let` when possible
-- Use async/await over Promises where appropriate
-
-### File Organization
-
-```
+```text
 src/
-├── types.ts          # Type definitions
-├── utils.ts          # Utility functions
-├── analyzer.ts       # Core analysis logic
-├── cli.ts           # CLI interface
-├── interactive.ts   # Interactive mode
-├── export.ts        # Export functionality
-└── ...
+  core/        scanning, exclusion rules, analysis, duplicates, comparison, budgets
+  reporters/   pretty (terminal), Markdown, CSV, and HTML renderers
+  config/      config file validation and discovery; the source of schema.json
+  format/      byte, time, color, and text helpers
+  cli/         commands, option parsing, progress, and file watching
+  index.ts     the public library API
+test/
+  unit/        pure functions and renderers
+  integration/ real temporary directory trees, the CLI, watch mode, and init
 ```
 
-### Error Handling
+A few principles keep the code base consistent:
 
-- Use proper error types
-- Provide meaningful error messages
-- Handle edge cases gracefully
-- Log errors appropriately
+- **The core never prints.** `src/core` returns plain data, and everything user-facing happens in `src/cli` and `src/reporters`.
+- **Results are JSON.** What the library returns is exactly what `--format json` prints, so new fields must be serializable and documented in `src/types.ts`.
+- **Memory stays bounded.** Anything computed per file during a scan must use constant memory, unless the user opted into a report that lists those files.
+- **Output is deterministic.** Sort by size, then by path with `comparePaths`, never by discovery order.
+- **Stdout is for the report only.** Messages, warnings, and progress go to stderr.
 
-### Example Code Style
+## Tests
 
-```typescript
-/**
- * Analyzes a directory and returns comprehensive statistics
- * @param options - Analysis configuration options
- * @returns Promise resolving to analysis results
- */
-export async function analyzeDirectory(
-  options: AnalysisOptions
-): Promise<AnalysisResult> {
-  try {
-    const { path, recursive = true, excludePatterns = [] } = options;
-    
-    // Implementation here
-    
-    return {
-      path,
-      totalSizeBytes: totalSize,
-      files: fileCount,
-      // ... other properties
-    };
-  } catch (error) {
-    throw new Error(`Failed to analyze directory: ${error.message}`);
-  }
-}
-```
+Tests create real directory trees with the `fixture()` helper in `test/helpers/fixture.ts`; they are removed after each test. CLI tests call `cli()` from `test/helpers/cli.ts`, which runs the program in-process with captured output. Every bug fix should come with a test that fails without it. CI runs the suite on Linux, macOS, and Windows with Node 22, 24, and 26, so keep file names portable and skip symlink or permission cases on Windows with `it.skipIf(isWindows)`.
 
-## Reporting Issues
+## Commits and releases
 
-### Bug Reports
+Commits follow [Conventional Commits](https://www.conventionalcommits.org), and a commit hook checks them. Releases are automated: every push to `main` runs CI, then semantic-release picks the version from the commit messages, publishes to npm with provenance, and updates `CHANGELOG.md`.
 
-When reporting bugs, please include:
+| Commit type                                              | Release                              |
+| -------------------------------------------------------- | ------------------------------------ |
+| `fix:`                                                   | patch                                |
+| `feat:`                                                  | minor                                |
+| `feat!:` or a `BREAKING CHANGE:` footer                  | major                                |
+| `docs(readme):`                                          | patch, so the npm page stays current |
+| `docs:`, `test:`, `refactor:`, `build:`, `ci:`, `chore:` | none                                 |
 
-- Operating system and version
-- Node.js version
-- dir-analysis-tool version
-- Command that caused the issue
-- Expected vs actual behavior
-- Error messages (if any)
-- Steps to reproduce
+## Code of conduct
 
-Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md).
-
-### Security Issues
-
-For security-related issues, please email the maintainers directly instead of creating a public issue.
-
-## Feature Requests
-
-We welcome feature requests! Please:
-
-- Check existing issues first
-- Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
-- Explain the use case and benefits
-- Consider the scope and complexity
-- Be open to discussion and alternatives
-
-### Popular Feature Areas
-
-- New export formats
-- Additional file analysis metrics
-- Performance improvements
-- UI/UX enhancements
-- Cross-platform compatibility
-- Integration with other tools
-
-## Documentation
-
-### Types of Documentation
-
-- **README.md** - Main project documentation
-- **Code comments** - Inline documentation
-- **JSDoc** - API documentation
-- **Examples** - Usage examples
-
-### Documentation Guidelines
-
-- Keep documentation up to date with code changes
-- Use clear, concise language
-- Include practical examples
-- Update the README for new features
-- Add inline comments for complex logic
-
-## Release Process
-
-(For maintainers)
-
-1. Update version in `package.json`
-2. Update `CHANGELOG.md`
-3. Create release tag
-4. Publish to npm
-5. Create GitHub release
-
-## Getting Help
-
-- **Issues**: Open an issue for bugs or feature requests
-- **Discussions**: Use GitHub Discussions for questions
-- **Email**: Contact maintainers for sensitive issues
-
-## Recognition
-
-Contributors will be recognized in:
-
-- README.md contributors section
-- Release notes
-- GitHub contributors page
-
-Thank you for contributing to dir-analysis-tool! 🎉
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Be kind and constructive.
