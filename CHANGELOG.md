@@ -1,3 +1,30 @@
+# Changelog
+
+## [3.0.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.7...v3.0.0) (2026-10-18)
+
+### ⚠ BREAKING CHANGES
+
+* dir-analysis-tool v3 (#1)
+* Requires Node.js 22.12 or later. The JSON output has a
+new versioned shape (schemaVersion 3) with raw byte counts and
+root-relative paths. Sizes use binary units by default (--si for
+decimal). Progress and status messages go to stderr. dist/ and build/ are
+no longer excluded by default (.git, .hg, .svn, and node_modules still
+are). --exclude takes one pattern per flag, --empty-files is now --empty,
+--date-from/--date-to are now --newer-than/--older-than, and
+--csv-large/--csv-duplicates were folded into --csv. Config keys were
+renamed; v1 and v2 keys are still read, with a deprecation warning.
+
+### Features
+
+* dir-analysis-tool v3 ([#1](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/1)) ([055c032](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/055c032090b1efe01376a585ad64fd596241ab76))
+* explain how to include default-excluded folders ([3fd71ad](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/3fd71adcdf517d930494ee0a30f5db47084d0868))
+* rewrite the analysis engine and CLI for v3 ([0245b56](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/0245b5623eedead964dcf08a21140bd23e2b4935))
+
+### Bug Fixes
+
+* read a bare --large-files number as MiB, as v2 did ([d3d5c1b](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/d3d5c1b3f8b9e5160eced63cabbf60d2536f7b3d))
+
 ## [2.0.7](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.6...v2.0.7) (2026-07-03)
 
 ## [2.0.6](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.5...v2.0.6) (2026-04-28)
