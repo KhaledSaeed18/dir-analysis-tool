@@ -12,6 +12,9 @@ updates:
       prefix-development: build
       include: scope
     ignore:
+      # Types track the oldest supported Node.js (engines), so code cannot use newer APIs by accident.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
       # v10 needs conventional-changelog-writer 9, which semantic-release's notes generator does not use yet.
       - dependency-name: conventional-changelog-conventionalcommits
         update-types: [version-update:semver-major]
