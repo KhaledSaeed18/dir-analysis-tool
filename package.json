@@ -38,7 +38,8 @@
         "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build && pnpm test:coverage && pnpm check:package",
         "check:package": "publint --strict && attw --pack . --profile esm-only",
         "prepare": "husky",
-        "prepublishOnly": "pnpm build"
+        "prepublishOnly": "pnpm build",
+        "banner": "node scripts/banner.ts"
     },
     "keywords": [
         "cli",
