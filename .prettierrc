@@ -4,5 +4,6 @@
     "tabWidth": 4,
     "trailingComma": "es5",
     "printWidth": 100,
-    "endOfLine": "lf"
+    "endOfLine": "lf",
+    "overrides": [{ "files": ["*.yml", "*.yaml", "*.md"], "options": { "tabWidth": 2 } }]
 }

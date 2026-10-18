@@ -1,2 +1,8 @@
-allowBuilds:
-  esbuild: true
+minimumReleaseAgeExclude:
+  - '@commitlint/cli@21.2.4'
+  - '@commitlint/config-conventional@21.2.4'
+  - '@commitlint/ensure@21.2.4'
+  - '@commitlint/lint@21.2.4'
+  - '@commitlint/load@21.2.4'
+  - '@commitlint/rules@21.2.4'
+onlyBuiltDependencies: []

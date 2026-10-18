@@ -2,45 +2,45 @@ name: Release
 
 on:
   push:
-    branches: [ main ]
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main]
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
+
+# Never cancel a release that is already publishing; queue the next one instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
 
+  release:
+    name: Publish
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release commit and tag
+      issues: write # comment on released issues
+      pull-requests: write # comment on released pull requests
+      id-token: write # npm trusted publishing and provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
-          version: latest
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
+          # No registry-url: it writes an .npmrc with a placeholder token that would shadow NPM_TOKEN.
+      - run: pnpm install --frozen-lockfile
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only needed until npm trusted publishing is configured for this package.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm exec semantic-release
