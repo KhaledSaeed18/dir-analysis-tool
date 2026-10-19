@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.0.0...v3.0.1) (2026-10-19)
+
+### Bug Fixes
+
+* do not report unreadable folders as empty ([b870457](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/b870457ab644ba0745a9b491f96e99a2c0fadd75))
+* issues found testing 3.0.0 end to end ([#3](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/3)) ([446a8a7](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/446a8a7112cc07ae2f3b64d3c2e0b71f3e64549a))
+* make reports clearer and the HTML report easier to scan ([a7eee99](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/a7eee99d883b554b0cb92ca8c640287bfc04d8d3))
+* report a mistyped size or age as invalid ([e4b6642](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/e4b664224eb8579c8a1ae952e3303eb9f003a70e))
+
+### Performance Improvements
+
+* throttle progress updates while finding duplicates ([2c0019c](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/2c0019c56feac871572e13961771aba7db586c37))
+
 ## [3.0.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v2.0.7...v3.0.0) (2026-10-18)
 
 ### ⚠ BREAKING CHANGES
