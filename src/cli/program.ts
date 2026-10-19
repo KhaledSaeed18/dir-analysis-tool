@@ -47,7 +47,7 @@ export async function run(argv: readonly string[], io: CliIO = processIO()): Pro
     const ctx = new Context(io);
     const program = createProgram(ctx);
     try {
-        await program.parseAsync(normalizeArgv(argv), { from: 'user' });
+        await program.parseAsync(normalizeArgv(argv, io.cwd), { from: 'user' });
         return ctx.exitCode;
     } catch (error) {
         return handleError(error, ctx);

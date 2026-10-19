@@ -40,7 +40,7 @@ export interface DirNode {
     name: string;
     parent: number;
     depth: number;
-    /** Entries on disk, before exclusion. Zero means the directory is empty. */
+    /** Entries on disk, before exclusion. Zero means empty; -1 means it could not be read. */
     entries: number;
     ownFiles: number;
     ownBytes: number;
@@ -171,6 +171,8 @@ export class Scanner {
         try {
             entries = await readdir(absPath, { withFileTypes: true });
         } catch (error) {
+            // -1 marks "could not be read", so it is never reported as an empty folder.
+            this.dirs[index]!.entries = -1;
             this.recordError(this.relativePath(index), error);
             return;
         }

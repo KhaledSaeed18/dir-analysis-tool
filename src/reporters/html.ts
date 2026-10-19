@@ -1,4 +1,5 @@
-import { formatBytes, type ByteUnits } from '../format/bytes.ts';
+import { formatBudgetActual } from '../core/budgets.ts';
+import { formatBytes, unitsOf, type ByteUnits } from '../format/bytes.ts';
 import { formatElapsed } from '../format/time.ts';
 import { formatCount, formatPercent, plural } from '../format/text.ts';
 import {
@@ -14,6 +15,9 @@ export interface HtmlOptions {
     /** Maximum rows per table. Default: 500. */
     limit?: number;
 }
+
+/** Duplicate groups listed in the HTML report; the full list is in JSON and CSV. */
+const DUPLICATE_GROUPS_SHOWN = 100;
 
 const CATEGORY_COLORS: Record<Category, string> = {
     code: '#6366f1',
@@ -61,7 +65,7 @@ export function renderAnalysisHtml(result: AnalysisResult, options: HtmlOptions 
         return `<table class="filterable"><thead><tr><th class="num">Size</th><th>Path</th>${showModified ? '<th>Modified</th>' : ''}</tr></thead><tbody>${shown
             .map(
                 (f) =>
-                    `<tr><td class="num">${e(b(f.bytes))}</td><td class="path">${meter(f.bytes, max)}<span>${e(f.path)}</span></td>${showModified ? `<td class="muted">${e(f.modified.slice(0, 10))}</td>` : ''}</tr>`
+                    `<tr><td class="num">${e(b(f.bytes))}</td><td class="path">${meter(f.bytes, max)}<span>${e(f.path)}</span></td>${showModified ? `<td class="muted date">${e(f.modified.slice(0, 10))}</td>` : ''}</tr>`
             )
             .join('')}</tbody></table>${truncatedNote(shown.length, total)}`;
     };
@@ -74,9 +78,7 @@ export function renderAnalysisHtml(result: AnalysisResult, options: HtmlOptions 
                 failed > 0 ? `${failed} failed` : 'all passed',
                 `<ul class="budgets">${result.budgets
                     .map((x) => {
-                        const actual = ['size', 'disk', 'largest', 'wasted'].includes(x.metric)
-                            ? b(x.actual)
-                            : formatCount(x.actual);
+                        const actual = formatBudgetActual(x, units);
                         return `<li class="${x.passed ? 'pass' : 'fail'}"><span>${x.passed ? '✔' : '✘'}</span><code>${e(x.rule)}</code><span class="muted">actual ${e(actual)}</span></li>`;
                     })
                     .join('')}</ul>`
@@ -147,7 +149,7 @@ export function renderAnalysisHtml(result: AnalysisResult, options: HtmlOptions 
         const lf = result.largeFiles;
         sections.push(
             section(
-                `Large files ≥ ${b(lf.threshold)}`,
+                `Large files ≥ ${formatBytes(lf.threshold, unitsOf(lf.threshold, units))}`,
                 lf.count > 0 ? `${plural(lf.count, 'file')} · ${b(lf.bytes)}` : 'none',
                 lf.count > 0 ? fileTable(lf.items, lf.count, true) : ''
             )
@@ -155,7 +157,8 @@ export function renderAnalysisHtml(result: AnalysisResult, options: HtmlOptions 
     }
     if (result.duplicates) {
         const d = result.duplicates;
-        const groups = d.items.slice(0, limit);
+        // Groups are long to scan, so fewer are shown than other lists; JSON and CSV have them all.
+        const groups = d.items.slice(0, Math.min(limit, DUPLICATE_GROUPS_SHOWN));
         sections.push(
             section(
                 'Duplicates',
@@ -165,7 +168,7 @@ export function renderAnalysisHtml(result: AnalysisResult, options: HtmlOptions 
                 groups
                     .map(
                         (g) =>
-                            `<details class="group"><summary><strong>${e(b(g.wastedBytes))}</strong> reclaimable <span class="muted">· ${g.files.length} × ${e(b(g.bytes))}</span></summary><ul>${g.files
+                            `<details class="group"><summary><strong>${e(b(g.wastedBytes))}</strong> <span class="muted">${g.files.length} × ${e(b(g.bytes))}</span> <span class="path first">${e(g.files[0]!)}</span>${g.files.length > 1 ? ` <span class="muted">and ${g.files.length - 1} more</span>` : ''}</summary><ul>${g.files
                                 .map((f) => `<li class="path">${e(f)}</li>`)
                                 .join(
                                     ''
@@ -354,13 +357,15 @@ th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute
 tr:last-child td{border-bottom:0}
 .num{text-align:right;white-space:nowrap}
 td.path{position:relative;word-break:break-all}
+td.date{white-space:nowrap}
 td.path span{position:relative}
 .meter{position:absolute;left:0;top:4px;bottom:4px;background:var(--meter);border-radius:4px}
 .types{display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:center}
 .donut{width:180px;height:180px;transform:rotate(0)}
 .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
 .group{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
-.group summary{cursor:pointer}
+.group summary{cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group .first{margin-left:6px}
 .group ul,.plain{margin:8px 0 0;padding-left:18px}
 .hash{font-family:ui-monospace,monospace;font-size:11px;margin:6px 0 0;word-break:break-all}
 .budgets{list-style:none;padding:0;margin:0}
@@ -368,7 +373,11 @@ td.path span{position:relative}
 .pass span:first-child{color:var(--ok)}.fail span:first-child{color:var(--bad)}.fail code{color:var(--bad)}
 .tree details>details,.tree details>.leaf{margin-left:22px}
 .tree summary,.tree .leaf{display:flex;gap:12px;padding:3px 0;cursor:default}
-.tree summary{cursor:pointer}
+.tree summary{cursor:pointer;list-style:none}
+.tree summary::-webkit-details-marker{display:none}
+.tree summary::before,.tree .leaf::before{content:'';width:12px;flex:none;color:var(--muted)}
+.tree summary::before{content:'▸'}
+.tree details[open]>summary::before{content:'▾'}
 .tree .num{min-width:84px}.tree .share{min-width:40px;color:var(--muted);font-size:12px;text-align:right}
 .hidden{display:none}
 footer{padding:24px;color:var(--muted);font-size:13px;text-align:center}

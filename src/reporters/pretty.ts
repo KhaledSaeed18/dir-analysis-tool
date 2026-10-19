@@ -1,4 +1,5 @@
-import { formatBytes, type ByteUnits } from '../format/bytes.ts';
+import { formatBudgetActual } from '../core/budgets.ts';
+import { formatBytes, unitsOf, type ByteUnits } from '../format/bytes.ts';
 import { createStyle, type Style } from '../format/style.ts';
 import { formatAge, formatElapsed } from '../format/time.ts';
 import {
@@ -127,7 +128,10 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
         );
     }
     if (sum.hardlinks > 0) {
-        row('Hardlinks', `${formatCount(sum.hardlinks)} ${s.dim('extra links counted once')}`);
+        row(
+            'Hardlinks',
+            `${formatCount(sum.hardlinks)} ${s.dim(`extra ${sum.hardlinks === 1 ? 'link' : 'links'} counted once`)}`
+        );
     }
     const skipped: string[] = [];
     if (sum.excluded > 0) skipped.push(`${formatCount(sum.excluded)} excluded`);
@@ -161,7 +165,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
     if (result.largeFiles) {
         const lf = result.largeFiles;
         r.heading(
-            `Large files ≥ ${r.bytes(lf.threshold)}`,
+            `Large files ≥ ${formatBytes(lf.threshold, unitsOf(lf.threshold, r.units))}`,
             lf.count > 0 ? `${plural(lf.count, 'file')} · ${r.bytes(lf.bytes)}` : 'none'
         );
         r.fileList(lf.items, lf.count);
@@ -217,8 +221,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
         const failed = result.budgets.filter((b) => !b.passed).length;
         r.heading('Budgets', failed > 0 ? s.red(`${failed} failed`) : s.green('all passed'));
         for (const budget of result.budgets) {
-            const isSize = ['size', 'disk', 'largest', 'wasted'].includes(budget.metric);
-            const actual = isSize ? r.bytes(budget.actual) : formatCount(budget.actual);
+            const actual = formatBudgetActual(budget, r.units);
             const mark = budget.passed ? s.green('✔') : s.red('✘');
             r.line(
                 `   ${mark} ${padEndVisible(budget.rule, 24)} ${s.dim('actual')} ${budget.passed ? actual : s.red(actual)}`
@@ -326,7 +329,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
     const signedCount = (n: number): string =>
         n > 0 ? s.green(`+${formatCount(n)}`) : n < 0 ? s.red(`-${formatCount(-n)}`) : s.dim('±0');
     const pct = (left: number, right: number): string => {
-        if (left === 0) return '';
+        if (left === 0 || left === right) return '';
         const value = ((right - left) / left) * 100;
         return s.dim(
             ` (${value > 0 ? '+' : ''}${Math.abs(value) < 0.1 && value !== 0 ? value.toFixed(2) : value.toFixed(1)}%)`
@@ -369,7 +372,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
             const l = result.left.types[c];
             const rt = result.right.types[c];
             r.line(
-                `   ${padEndVisible(CATEGORY_LABELS[c], 10)}${col(r.bytes(l.bytes))}${col(r.bytes(rt.bytes))}  ${signed(rt.bytes - l.bytes)}  ${s.dim(`${signedCount(rt.files - l.files)} files`)}`
+                `   ${padEndVisible(CATEGORY_LABELS[c], 10)}${col(r.bytes(l.bytes))}${col(r.bytes(rt.bytes))}  ${signed(rt.bytes - l.bytes)}  ${s.dim(`${signedCount(rt.files - l.files)} ${Math.abs(rt.files - l.files) === 1 ? 'file' : 'files'}`)}`
             );
         }
     }

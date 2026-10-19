@@ -204,6 +204,10 @@ function describeChange(
     if (bytes === 0 && files === 0) return 'no size change';
     const parts: string[] = [];
     if (bytes !== 0) parts.push(`${bytes > 0 ? '+' : ''}${formatBytes(bytes, units)}`);
-    if (files !== 0) parts.push(`${files > 0 ? '+' : ''}${formatCount(files)} files`);
+    if (files !== 0) {
+        parts.push(
+            `${files > 0 ? '+' : ''}${formatCount(files)} ${Math.abs(files) === 1 ? 'file' : 'files'}`
+        );
+    }
     return parts.join(', ');
 }
