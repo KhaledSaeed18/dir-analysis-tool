@@ -1,4 +1,4 @@
-import { parseSize } from '../format/bytes.ts';
+import { formatBytes, parseSize, unitsOf, type ByteUnits } from '../format/bytes.ts';
 import type { AnalysisResult, BudgetMetric, BudgetOperator, BudgetResult } from '../types.ts';
 
 /** A feature a metric depends on; requesting the metric turns the feature on. */
@@ -151,4 +151,15 @@ function compare(actual: number, operator: BudgetOperator, limit: number): boole
         case '!=':
             return actual !== limit;
     }
+}
+
+/**
+ * Formats a budget's measured value for display. Sizes use the unit system of
+ * the rule's own limit, so "size<=500MB" reads "actual 312 MB", not "297 MiB".
+ */
+export function formatBudgetActual(budget: BudgetResult, units: ByteUnits): string {
+    if (BUDGET_METRICS[budget.metric].kind === 'count') {
+        return budget.actual.toLocaleString('en-US');
+    }
+    return formatBytes(budget.actual, unitsOf(budget.limit, units));
 }

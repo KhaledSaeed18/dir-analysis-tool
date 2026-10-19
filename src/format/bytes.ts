@@ -45,6 +45,20 @@ function trimZeros(text: string): string {
     return text.includes('.') ? text.replace(/\.?0+$/, '') : text;
 }
 
+/**
+ * The unit system a byte count was most likely written in, so a value can be
+ * shown back the way the user typed it: 1,000,000 bytes ("1MB") is SI and
+ * 1,048,576 ("1MiB") is IEC. Returns `fallback` when it is ambiguous.
+ */
+export function unitsOf(bytes: number, fallback: ByteUnits): ByteUnits {
+    if (!(bytes > 0)) return fallback;
+    const si = bytes % 1000 === 0;
+    const iec = bytes % 1024 === 0;
+    if (si && !iec) return 'si';
+    if (iec && !si) return 'iec';
+    return fallback;
+}
+
 const SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?|\.\d+)\s*([a-z]*)\s*$/i;
 
 const SIZE_MULTIPLIERS: Record<string, number> = {

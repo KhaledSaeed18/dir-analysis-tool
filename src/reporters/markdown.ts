@@ -1,4 +1,5 @@
-import { formatBytes, type ByteUnits } from '../format/bytes.ts';
+import { formatBudgetActual } from '../core/budgets.ts';
+import { formatBytes, unitsOf, type ByteUnits } from '../format/bytes.ts';
 import { formatCount, formatPercent, plural } from '../format/text.ts';
 import {
     CATEGORIES,
@@ -85,9 +86,7 @@ export function renderAnalysisMarkdown(
                 result.budgets.map((x) => [
                     x.passed ? '✅' : '❌',
                     mdCode(x.rule),
-                    ['size', 'disk', 'largest', 'wasted'].includes(x.metric)
-                        ? b(x.actual)
-                        : formatCount(x.actual),
+                    formatBudgetActual(x, units),
                 ])
             )
         );
@@ -132,7 +131,7 @@ export function renderAnalysisMarkdown(
         const lf = result.largeFiles;
         out.push(
             '',
-            `### Large files (≥ ${b(lf.threshold)}): ${plural(lf.count, 'file')}, ${b(lf.bytes)}`,
+            `### Large files (≥ ${formatBytes(lf.threshold, unitsOf(lf.threshold, units))}): ${plural(lf.count, 'file')}, ${b(lf.bytes)}`,
             ''
         );
         fileTable(lf.items, lf.count);

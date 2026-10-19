@@ -1,7 +1,7 @@
 import { relative } from 'node:path';
 import type { Command } from 'commander';
 import { analyze, type AnalyzeOptions } from '../../core/analyze.ts';
-import { formatBytes } from '../../format/bytes.ts';
+import { formatBudgetActual } from '../../core/budgets.ts';
 import { renderAnalysisCsv } from '../../reporters/csv.ts';
 import { renderAnalysisHtml } from '../../reporters/html.ts';
 import { renderAnalysisAs } from '../../reporters/index.ts';
@@ -143,8 +143,7 @@ export function reportBudgets(
     // Pretty output already shows budgets on the terminal; say it on stderr for every other case.
     if (display.format === 'pretty' && !display.output) return;
     for (const budget of failed) {
-        const isSize = ['size', 'disk', 'largest', 'wasted'].includes(budget.metric);
-        const actual = isSize ? formatBytes(budget.actual, display.units) : String(budget.actual);
+        const actual = formatBudgetActual(budget, display.units);
         ctx.io.stderr.write(`${ctx.err.red('budget failed')} ${budget.rule} (actual ${actual})\n`);
     }
 }
