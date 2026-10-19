@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { parseSize } from '../format/bytes.ts';
 import { parsePointInTime } from '../format/time.ts';
 
@@ -12,14 +14,21 @@ const OPTIONAL_VALUE_FLAGS: ReadonlyArray<{
     names: readonly string[];
     long: string;
     accepts: (value: string) => boolean;
+    /** Values that start like this are mistyped values, not paths (unless such a path exists). */
+    looksLikeValue?: RegExp;
 }> = [
-    { names: ['-l', '--large-files'], long: '--large-files', accepts: isSize },
-    { names: ['--stale'], long: '--stale', accepts: isPointInTime },
+    {
+        names: ['-l', '--large-files'],
+        long: '--large-files',
+        accepts: isSize,
+        looksLikeValue: /^\.?\d/,
+    },
+    { names: ['--stale'], long: '--stale', accepts: isPointInTime, looksLikeValue: /^\d/ },
     { names: ['--html'], long: '--html', accepts: (v) => /\.html?$/i.test(v) },
     { names: ['--csv'], long: '--csv', accepts: (v) => /\.csv$/i.test(v) },
 ];
 
-export function normalizeArgv(argv: readonly string[]): string[] {
+export function normalizeArgv(argv: readonly string[], cwd: string = process.cwd()): string[] {
     const out: string[] = [];
     for (let i = 0; i < argv.length; i++) {
         const token = argv[i]!;
@@ -30,8 +39,12 @@ export function normalizeArgv(argv: readonly string[]): string[] {
         const flag = OPTIONAL_VALUE_FLAGS.find((f) => f.names.includes(token));
         const next = argv[i + 1];
         if (flag && next !== undefined && !next.startsWith('-') && !flag.accepts(next)) {
-            out.push(`${flag.long}=`);
-            continue;
+            // "-l 5parsecs" is a typo in the size: keep it attached so it is reported as invalid.
+            const mistyped = flag.looksLikeValue?.test(next) && !existsSync(resolve(cwd, next));
+            if (!mistyped) {
+                out.push(`${flag.long}=`);
+                continue;
+            }
         }
         out.push(token);
     }
