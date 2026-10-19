@@ -128,16 +128,24 @@ export async function analyze(path: string, options: AnalyzeOptions = {}): Promi
         let duplicates: AnalysisResult['duplicates'];
         if (features.duplicates) {
             progress.stop();
+            // Hashing reports per file; forward at most one update per interval, plus each stage's end.
+            const interval = options.progressInterval ?? 100;
+            let last = 0;
             duplicates = await collector.findDuplicates(
                 scanOptions.concurrency,
                 scanOptions.signal,
-                (p) =>
-                    report?.({
+                (p) => {
+                    if (!report) return;
+                    const now = performance.now();
+                    if (p.done !== p.total && p.done !== 0 && now - last < interval) return;
+                    last = now;
+                    report({
                         phase: 'hash',
                         files: scanner.counters.files,
                         bytes: scanner.counters.bytes,
                         ...p,
-                    })
+                    });
+                }
             );
         }
 
