@@ -33,7 +33,7 @@ npx dir-analysis-tool
 ## Why dir-analysis-tool?
 
 - **Fast.** A concurrent, bounded scanner `stat`s every file exactly once. On a 140,000-file tree it is about 3× faster than v2, and duplicate detection is about 4× faster.
-- **Light.** Memory stays flat while scanning (about 9 MB retained for 140,000 files), and the package has just three direct dependencies.
+- **Light.** Memory stays flat while scanning (about 9 MB retained for 140,000 files), and the package has zero runtime dependencies.
 - **Answers the real question.** _Which folders and files take the space?_ Then types, extensions, duplicates, stale files, and empty ones.
 - **Correct.** Hard-linked data is counted once, symlinks can be followed without looping, unreadable paths are reported instead of silently skipped, and output is deterministic.
 - **Built for CI.** Size budgets fail the build with exit code 2, Markdown output drops straight into a pull request or job summary, and `--json` stays clean when piped.
