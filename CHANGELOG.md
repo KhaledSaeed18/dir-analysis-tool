@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.1.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.0.1...v3.1.0) (2026-10-21)
+
+### Features
+
+* ship with zero runtime dependencies ([82d0877](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/82d08775ecf3ca7c23c147eea71142ef2314c7bd))
+
+### Bug Fixes
+
+* **core:** honor bare wildcard gitignore rules ([791a3a6](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/791a3a6968e81b6d89dbc1c03a42eea23e2bfb4b))
+
+### Performance Improvements
+
+* **core:** hash duplicate candidates with one read per small file ([6712ab5](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/6712ab57b41c51b585012828a9cc850514c26822))
+* **core:** match gitignore rules with an in-house matcher ([4ebacca](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/4ebacca1beca511fedd6792a715355cc0b9ca0f2))
+
 ## [3.0.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.0.0...v3.0.1) (2026-10-19)
 
 ### Bug Fixes
