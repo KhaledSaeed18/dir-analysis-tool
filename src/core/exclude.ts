@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
-import ignore, { type Ignore } from 'ignore';
+import { GitignoreMatcher } from './gitignore.ts';
 
 /** Directories skipped unless default excludes are turned off. */
 export const DEFAULT_EXCLUDES: readonly string[] = ['.git', '.hg', '.svn', 'node_modules'];
@@ -22,7 +22,7 @@ export interface ExcludeOptions {
  * it: `local = prefix + rootRelativePath.slice(strip)`.
  */
 interface IgnoreScope {
-    readonly matcher: Ignore;
+    readonly matcher: GitignoreMatcher;
     readonly prefix: string;
     readonly strip: number;
 }
@@ -41,7 +41,7 @@ const EMPTY_CHAIN: IgnoreChain = [];
 export class Excluder {
     readonly gitignore: boolean;
     readonly #defaults: ReadonlySet<string> | null;
-    readonly #user: Ignore | null;
+    readonly #user: GitignoreMatcher | null;
     readonly #ignoreCase: boolean;
 
     constructor(options: ExcludeOptions = {}) {
@@ -49,7 +49,8 @@ export class Excluder {
         this.#ignoreCase = options.ignoreCase ?? process.platform !== 'linux';
         this.#defaults = (options.defaultExcludes ?? true) ? new Set(DEFAULT_EXCLUDES) : null;
         const patterns = (options.patterns ?? []).map((p) => p.trim()).filter(Boolean);
-        this.#user = patterns.length > 0 ? this.#createMatcher().add(patterns) : null;
+        const user = patterns.length > 0 ? this.#compile(patterns) : null;
+        this.#user = user?.hasRules ? user : null;
     }
 
     /** True when at least one rule could exclude something. */
@@ -68,9 +69,7 @@ export class Excluder {
      */
     isExcluded(relPath: string, name: string, isDirectory: boolean, chain: IgnoreChain): boolean {
         if (isDirectory && this.#defaults?.has(name)) return true;
-        if (this.#user !== null && this.#user.ignores(isDirectory ? `${relPath}/` : relPath)) {
-            return true;
-        }
+        if (this.#user !== null && this.#user.test(relPath, isDirectory) === true) return true;
         return chain.length > 0 && isGitIgnored(chain, relPath, isDirectory);
     }
 
@@ -99,9 +98,11 @@ export class Excluder {
     /** Builds the scope for a `.gitignore` found at `rootRelativeDir` (`''` for the root). */
     async loadScope(filePath: string, rootRelativeDir: string): Promise<IgnoreScope | null> {
         const content = await readFile(filePath, 'utf8').catch(() => null);
-        if (content === null || content.trim() === '') return null;
+        if (content === null) return null;
+        const matcher = this.#compile(content);
+        if (!matcher.hasRules) return null;
         return {
-            matcher: this.#createMatcher().add(content),
+            matcher,
             prefix: '',
             strip: rootRelativeDir ? rootRelativeDir.length + 1 : 0,
         };
@@ -133,21 +134,19 @@ export class Excluder {
         const outermostFirst = repoRoot === root ? [] : ancestors.reverse();
         const add = async (file: string, base: string): Promise<void> => {
             const content = await readFile(file, 'utf8').catch(() => null);
-            if (content === null || content.trim() === '') return;
+            if (content === null) return;
+            const matcher = this.#compile(content);
+            if (!matcher.hasRules) return;
             const prefix = relative(base, root).split(sep).join('/');
-            scopes.push({
-                matcher: this.#createMatcher().add(content),
-                prefix: prefix ? `${prefix}/` : '',
-                strip: 0,
-            });
+            scopes.push({ matcher, prefix: prefix ? `${prefix}/` : '', strip: 0 });
         };
         await add(join(repoRoot, '.git', 'info', 'exclude'), repoRoot);
         for (const dir of outermostFirst) await add(join(dir, '.gitignore'), dir);
         return scopes;
     }
 
-    #createMatcher(): Ignore {
-        return ignore({ ignorecase: this.#ignoreCase, allowRelativePaths: true });
+    #compile(source: string | readonly string[]): GitignoreMatcher {
+        return GitignoreMatcher.compile(source, { ignoreCase: this.#ignoreCase });
     }
 }
 
@@ -156,9 +155,8 @@ function isGitIgnored(chain: IgnoreChain, relPath: string, isDirectory: boolean)
     for (const scope of chain) {
         const local = scope.prefix + relPath.slice(scope.strip);
         if (local === '') continue;
-        const result = scope.matcher.test(isDirectory ? `${local}/` : local);
-        if (result.ignored) ignored = true;
-        else if (result.unignored) ignored = false;
+        const result = scope.matcher.test(local, isDirectory);
+        if (result !== undefined) ignored = result;
     }
     return ignored;
 }
