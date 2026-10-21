@@ -32,8 +32,9 @@ npx dir-analysis-tool
 
 ## Why dir-analysis-tool?
 
-- **Fast.** A concurrent, bounded scanner `stat`s every file exactly once. On a 140,000-file tree it is about 3× faster than v2, and duplicate detection is about 4× faster.
-- **Light.** Memory stays flat while scanning (about 9 MB retained for 140,000 files), and the package has zero runtime dependencies.
+- **Fast.** A concurrent, bounded scanner `stat`s every file exactly once and runs at the speed of the filesystem: the Linux kernel source tree (96,000 files) scans in about 0.3 s, close to `du` in the benchmark below.
+- **Light.** The default scan keeps only top-N files and folder aggregates, and the process starts in about 20 ms.
+- **Zero dependencies.** The CLI and the library are pure Node.js: no third-party runtime packages are installed. Development tools are only needed when working on the source.
 - **Answers the real question.** _Which folders and files take the space?_ Then types, extensions, duplicates, stale files, and empty ones.
 - **Correct.** Hard-linked data is counted once, symlinks can be followed without looping, unreadable paths are reported instead of silently skipped, and output is deterministic.
 - **Built for CI.** Size budgets fail the build with exit code 2, Markdown output drops straight into a pull request or job summary, and `--json` stays clean when piped.
@@ -58,7 +59,7 @@ npx dir-analysis-tool
 
 ## Installation
 
-Requires Node.js 22.12 or later.
+Requires Node.js 22.12 or later. The published CLI and library have **zero runtime dependencies**; all imports use Node.js built-ins or code shipped in this package.
 
 ```bash
 npm install -g dir-analysis-tool    # or: pnpm add -g dir-analysis-tool
@@ -93,35 +94,35 @@ dat . --json | jq '.largestFiles[0]'  # machine-readable output
 
 ## What it shows
 
-`dat . -g -d` on this repository:
+`dat . -g -d -n 5` on this repository (sizes and timing vary by checkout):
 
 ```text
- dat  ~/code/dir-analysis-tool  5ms
+ dat  ~/code/dir-analysis-tool  4ms
 
-   Size      1.4 MiB  (1.58 MiB on disk)
-   Files     83
+   Size      806 KiB  (1 MiB on disk)
+   Files     93
    Folders   19
-   Skipped   22 excluded
+   Skipped   23 excluded  (--all includes .git and node_modules)
 
  File types
-   Images     ██████████▌         937 KiB   65%  1 file
-   Code       █████▏              458 KiB   32%  71 files
-   Documents  ▌                  39.3 KiB    3%  8 files
+   Code       ███████████▏        559 KiB   69%  82 files
+   Images     ███▉                195 KiB   24%  1 file
+   Documents  █                  51.7 KiB    6%  7 files
    Other                            113 B   <1%  3 files
 
  Largest folders
-      937 KiB  .github/assets/  1 file
-      212 KiB  src/  38 files
-     78.7 KiB  src/core/  11 files
-     74.7 KiB  test/  14 files
-     51.1 KiB  src/cli/  12 files
+      261 KiB  src/  41 files
+      195 KiB  .github/assets/  1 file
+      109 KiB  test/  18 files
+     94.4 KiB  src/core/  12 files
+     82.9 KiB  src/cli/  14 files
 
  Largest files
-      937 KiB  .github/assets/dir-analysis-tool-banner.png
-      147 KiB  pnpm-lock.yaml
-     20.8 KiB  src/core/analyze.ts
-     18.1 KiB  test/integration/analyze.test.ts
-     17.2 KiB  src/reporters/html.ts
+      195 KiB  .github/assets/dir-analysis-tool-banner.png
+      146 KiB  pnpm-lock.yaml
+     33.1 KiB  README.md
+     24.8 KiB  src/cli/command.ts
+       21 KiB  src/core/analyze.ts
 
  Duplicates  none found
 ```
@@ -132,15 +133,13 @@ A size tree (`dat src -t --tree-depth 2`):
 
 ```text
  Tree
-      212 KiB  .
-     78.7 KiB  ├─ core/
-     20.8 KiB  │  ├─ analyze.ts
-     13.9 KiB  │  ├─ scanner.ts
-       10 KiB  │  ├─ compare.ts
-        535 B  │  └─ … 1 more entry
-     51.1 KiB  ├─ cli/
-     23.1 KiB  │  ├─ commands/
-     13.5 KiB  │  ├─ options.ts
+      261 KiB  .
+     94.4 KiB  ├─ core/
+       21 KiB  │  ├─ analyze.ts
+       14 KiB  │  ├─ scanner.ts
+     12.6 KiB  │  ├─ gitignore.ts
+     10.2 KiB  │  ├─ compare.ts
+     8.17 KiB  │  ├─ duplicates.ts
           …
 ```
 
@@ -230,7 +229,7 @@ A size tree (`dat src -t --tree-depth 2`):
 | `-n, --top <n>`         | Items per list. Default `10`.                                                               |
 | `-f, --format <format>` | `pretty`, `json`, `markdown`, or `csv`.                                                     |
 
-All scan and output options above are accepted too.
+All scan options and shared output options above are accepted too; `--html`, `--csv`, and HTML format are analyze-only. Use `--format csv` to export a comparison.
 
 ### `dat watch`
 
@@ -428,24 +427,29 @@ Sizes and times accept the same strings as the CLI (`minSize: '10MB'`, `modified
 
 ## How it works
 
-- **Scanning.** Directories are read with `readdir({ withFileTypes })`, so they never need a `stat`, and each regular file is `lstat`ed once. All filesystem calls go through one concurrency limiter, so no tree, however wide, can exhaust file handles. Work is scheduled depth-first to keep the queue small.
+- **Scanning.** Directories are read with `readdir({ withFileTypes })`, so they never need a `stat`, and each regular file is `lstat`ed once. All filesystem calls go through one concurrency limiter (32 operations in flight by default), so no tree, however wide, can exhaust file handles. Work is scheduled depth-first to keep the queue small.
+- **Patterns.** Exclude patterns and `.gitignore` files are compiled by a built-in matcher: consecutive rules become a few regular expressions, and plain names and `*.ext` rules are resolved with hash lookups, reducing pattern-matching overhead without caching results per path.
 - **Memory.** Totals, type and extension statistics, folder sizes, and the top-N lists are computed while scanning; the lists use bounded heaps. Reports you opt into keep only what they match. Duplicate detection keeps one small record per file that shares its size with another.
 - **Largest folders.** Folders are ranked by the total size below them. A folder whose size comes almost entirely (95% or more) from one subfolder is folded into that subfolder, so the list points to where the data actually lives instead of repeating every parent.
 - **Duplicates,** in stages so most files are never read in full:
   1. Only sizes shared by at least two files are considered. Empty files are excluded, and hard links to the same data are not copies.
   2. Files over 256 KiB are compared by a SHA-256 sample of their first and last 64 KiB.
-  3. Remaining candidates are hashed in full with streaming SHA-256 and reusable buffers.
+  3. Remaining candidates are hashed in full: small files in a single read, large files streamed through reusable buffers. Each size group is finished as soon as its last file is hashed, so intermediate hash maps are retained only for groups in flight; candidates and results still use memory proportional to their count.
 - **Disk usage.** Sizes are apparent sizes (file lengths). `On disk` is the space allocated in blocks, which is what `du` reports.
 - **Determinism.** Results are sorted by size and then by path, so the same tree always produces the same output, whatever order the filesystem returned it in.
 
-**Benchmarks** (Apple M4, warm cache, 140,237 files, 2.97 GB):
+**Benchmarks** (Apple M4, warm cache, best of three; measurements from the optimization work, not performance guarantees). On the Linux kernel source tree, 96,127 files and 1.53 GiB:
 
-| Task                     | v2.0.7 |         v3 |
-| ------------------------ | -----: | ---------: |
-| Scan                     | 1.74 s | **0.61 s** |
-| Scan and find duplicates | 12.3 s |  **2.9 s** |
+| Task                               |   v3.0 |       v3.1 | `du -s` |
+| ---------------------------------- | -----: | ---------: | ------: |
+| Scan                               | 0.32 s | **0.28 s** |  0.25 s |
+| Scan honoring `.gitignore`         | 0.98 s | **0.33 s** |         |
+| Scan and find duplicates           | 2.64 s | **1.20 s** |         |
+| Peak heap while finding duplicates | 118 MB |  **45 MB** |         |
 
-Both versions found the same files, bytes, and duplicate groups. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
+On a synthetic tree of 1,000,000 files, v3.1 scans in 8.9 s where `du -s` takes 13 s. Compared with v2.0.7 on a 140,237-file tree, v3 scans about 3× faster and finds duplicates about 4× faster, with identical results. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
+
+The benchmark script reports scan and duplicate timings plus process peak RSS (not JavaScript heap). Results vary with storage, cache state, tree shape, and Node.js version. `du` measures allocated disk space and does not produce the same reports.
 
 ## Exit codes
 
@@ -478,9 +482,9 @@ v3 is a rewrite with a new output format. Most commands keep working unchanged.
 
 **Why does the total differ from `du`?** `du` reports blocks allocated on disk, while the headline size is the sum of file lengths. The `On disk` line matches `du`. Also check what was skipped: `.git` and `node_modules` are excluded by default (`--all` includes them), and hard-linked data is counted once, as `du` does.
 
-**Is it safe to run on a huge directory?** Yes. Memory does not grow with the number of files unless you ask for a report that lists them, filesystem concurrency is bounded, and unreadable paths are reported rather than fatal. Press Ctrl+C at any time.
+**Is it safe to run on a huge directory?** Yes. The default scan keeps bounded top-N file lists, but folder metadata, hard-link tracking, and symlink tracking still require memory. Duplicate detection, directory comparisons, and optional file lists use additional memory, filesystem concurrency is bounded, and unreadable paths are reported rather than fatal. Press Ctrl+C at any time.
 
-**Does it modify anything?** No. `dat` only reads, except for report files you ask it to write.
+**Does it modify anything?** `dat` reads the scanned files. It writes report files when requested, and `dat init` writes a configuration file.
 
 ## Contributing
 

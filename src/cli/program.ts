@@ -12,7 +12,7 @@ import { ExitCode, processIO, type CliIO } from './io.ts';
 export function createProgram(ctx: Context): Command {
     const { io } = ctx;
     const program = new Command('dat')
-        .description('Fast, memory-bounded directory analysis for your terminal and CI.')
+        .description('Fast, zero-dependency directory analysis for your terminal and CI.')
         .version(VERSION, '-v, --version', 'print the version')
         .helpOption('-h, --help', 'show help')
         .helpCommand('help [command]', 'show help for a command')

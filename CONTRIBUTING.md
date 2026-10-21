@@ -28,6 +28,16 @@ pnpm dev ~/some/directory -d         # run the CLI from source
 | `pnpm bench [directory]`        | Benchmark a scan                                          |
 | `pnpm check`                    | Everything CI runs. Run it before opening a pull request. |
 
+## README banner
+
+The banner is rendered from a real scan with the existing colors, typography, and treemap layout:
+
+```bash
+pnpm banner /path/to/linux --subject "The Linux kernel source tree"
+```
+
+Google Chrome is required for rendering; set `CHROME` to another Chromium executable if needed. `pnpm banner --packages` renders the development dependencies instead. These are contributor tools, not runtime requirements for the published package.
+
 ## Project layout
 
 ```text

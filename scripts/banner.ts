@@ -1,16 +1,20 @@
 /**
- * Renders the README banner from a real scan: a treemap of this
- * repository's node_modules, analyzed with dat itself.
+ * Renders the README banner from a real scan, analyzed with dat itself: a
+ * treemap of the top-level folders of a large source tree (the published
+ * banner uses a Linux kernel checkout), or of this repository's node_modules.
  *
- *   pnpm install && pnpm banner
+ *   pnpm banner ~/src/linux --subject "The Linux kernel source tree"
+ *   pnpm banner --packages         # this repository's node_modules, one tile per package
  *
  * Needs Google Chrome (or set CHROME to a Chromium binary) for the screenshot.
  */
 import { execFileSync } from 'node:child_process';
 import { readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
+import { parseArgs } from 'node:util';
 import { analyze } from '../src/core/analyze.ts';
+import { DEFAULT_EXCLUDES } from '../src/core/exclude.ts';
 import { formatBytes } from '../src/format/bytes.ts';
 import { escapeHtml as e } from '../src/reporters/html.ts';
 import type { Category } from '../src/types.ts';
@@ -18,7 +22,21 @@ import type { Category } from '../src/types.ts';
 const WIDTH = 1280;
 const HEIGHT = 640;
 const MAP = { x: 600, y: 0, w: WIDTH - 600, h: HEIGHT };
-const SHOWN_PACKAGES = 64;
+const SHOWN_TILES = 64;
+const { values: flags, positionals } = parseArgs({
+    args: process.argv.slice(2).filter((arg) => arg !== '--'),
+    allowPositionals: true,
+    options: { packages: { type: 'boolean' }, subject: { type: 'string' } },
+});
+const PACKAGES = flags.packages;
+const SUBJECT = flags.subject;
+const TARGET = positionals[0];
+if ((!PACKAGES && !TARGET) || positionals.length > 1 || (PACKAGES && TARGET)) {
+    process.stderr.write(
+        'Usage: pnpm banner <directory> [--subject <caption>] | pnpm banner --packages\n'
+    );
+    process.exit(1);
+}
 /** IBM Plex Mono advances 0.6em per character. */
 const CHAR_EM = 0.6;
 
@@ -41,7 +59,7 @@ interface Tile {
     label: string;
     bytes: number;
     color: string;
-    /** Largest files inside the package, drawn as subdivisions. */
+    /** Largest entries inside the tile, drawn as subdivisions. */
     parts: number[];
 }
 
@@ -97,13 +115,39 @@ function packageName(dir: string): string {
     return (match?.[1] ?? dir).replace('+', '/');
 }
 
-async function collect(): Promise<{
+interface Collected {
     tiles: Tile[];
     files: number;
+    directories: number;
     bytes: number;
     ms: number;
-    packages: number;
-}> {
+    /** What the tiles are: packages or folders. */
+    unit: string;
+    subject: string;
+    legend: ReadonlyArray<readonly [string, string]>;
+}
+
+function dominant(types: Record<Category, { bytes: number }>): Category {
+    return Object.entries(types).sort((a, b) => b[1].bytes - a[1].bytes)[0]![0] as Category;
+}
+
+function finish(tiles: Tile[], restLabel: string): Tile[] {
+    tiles.sort((a, b) => b.bytes - a.bytes);
+    const shown = tiles.slice(0, SHOWN_TILES);
+    const rest = tiles.slice(SHOWN_TILES);
+    if (rest.length > 0) {
+        shown.push({
+            label: `${rest.length} more ${restLabel}`,
+            bytes: rest.reduce((s, p) => s + p.bytes, 0),
+            color: COLORS.rest,
+            parts: [],
+        });
+    }
+    return shown;
+}
+
+/** One tile per package of this repository's node_modules. */
+async function collectPackages(): Promise<Collected> {
     const root = join(import.meta.dirname, '..', 'node_modules', '.pnpm');
     const started = performance.now();
     const whole = await analyze(root, { defaultExcludes: false, top: 0 });
@@ -113,29 +157,119 @@ async function collect(): Promise<{
         if (dir.startsWith('.') || dir === 'node_modules' || dir === 'lock.yaml') continue;
         const result = await analyze(join(root, dir), { defaultExcludes: false, top: 4 });
         if (result.summary.bytes === 0) continue;
-        const [category] = Object.entries(result.types).sort((a, b) => b[1].bytes - a[1].bytes)[0]!;
         packages.push({
             label: packageName(dir),
             bytes: result.summary.bytes,
-            color: COLORS[category as Category] ?? COLORS.documents!,
+            color: COLORS[dominant(result.types)] ?? COLORS.documents!,
             parts: result.largestFiles.map((f) => f.bytes),
         });
     }
-    packages.sort((a, b) => b.bytes - a.bytes);
-    const shown = packages.slice(0, SHOWN_PACKAGES);
-    const rest = packages.slice(SHOWN_PACKAGES);
-    shown.push({
-        label: `${rest.length} more`,
-        bytes: rest.reduce((s, p) => s + p.bytes, 0),
-        color: COLORS.rest,
-        parts: [],
-    });
     return {
-        tiles: shown,
+        tiles: finish(packages, ''),
         files: whole.summary.files,
+        directories: packages.length,
         bytes: whole.summary.bytes,
         ms,
-        packages: packages.length,
+        unit: 'packages',
+        subject: 'This repository’s node_modules',
+        legend: [
+            ['JavaScript and types', COLORS.code!],
+            ['Native binaries', COLORS.other!],
+            ['Smaller packages', COLORS.rest],
+        ],
+    };
+}
+
+/**
+ * Sizes of the largest subfolders, for the lines inside a tile. A folder whose
+ * size sits almost entirely in one child is looked at through that child, so
+ * the lines show where the data actually lives.
+ */
+async function subfolderSizes(dir: string, depth = 0): Promise<number[]> {
+    const result = await analyze(dir, { top: 0, tree: { depth: 1, limit: 6 } });
+    const children = (result.tree?.children ?? []).filter((c) => c.type === 'directory');
+    const [largest] = children;
+    if (largest && largest.bytes >= result.summary.bytes * 0.9 && depth < 3) {
+        return subfolderSizes(join(dir, largest.name), depth + 1);
+    }
+    return children.map((c) => c.bytes);
+}
+
+/** A folder holding more than this share of the tree is shown as its children. */
+const SPLIT_SHARE = 0.07;
+
+/**
+ * One tile per folder, going deeper wherever one folder dominates, so the map
+ * shows where the data actually lives instead of one giant block.
+ */
+async function collectTree(root: string): Promise<Collected> {
+    const started = performance.now();
+    const whole = await analyze(root, { top: 0 });
+    const ms = performance.now() - started;
+    const limit = whole.summary.bytes * SPLIT_SHARE;
+    const folders: Tile[] = [];
+
+    const visit = async (relative: string[]): Promise<void> => {
+        const dir = join(root, ...relative);
+        const result = await analyze(dir, { top: 0, tree: { depth: 1, limit: 1000 } });
+        const children = (result.tree?.children ?? []).filter(
+            (c) => c.type === 'directory' && !DEFAULT_EXCLUDES.includes(c.name)
+        );
+        // Keep a folder intact when most of its bytes are direct files.
+        if (
+            relative.length > 0 &&
+            children.reduce((sum, child) => sum + child.bytes, 0) < result.summary.bytes * 0.5
+        ) {
+            folders.push({
+                label: `${relative.join('/')}/`,
+                bytes: result.summary.bytes,
+                color: COLORS[dominant(result.types)] ?? COLORS.other!,
+                parts: (result.tree?.children ?? []).map((child) => child.bytes),
+            });
+            return;
+        }
+        // Preserve bytes in direct files (and entries beyond the tree display limit).
+        const remainder =
+            result.summary.bytes - children.reduce((sum, child) => sum + child.bytes, 0);
+        if (remainder > 0) {
+            folders.push({
+                label: `${relative.length ? `${relative.join('/')}/` : ''}files`,
+                bytes: remainder,
+                color: COLORS[dominant(result.types)] ?? COLORS.other!,
+                parts: [],
+            });
+        }
+        for (const child of children) {
+            if (child.bytes === 0) continue;
+            if (child.bytes > limit) {
+                await visit([...relative, child.name]);
+                continue;
+            }
+            const path = [...relative, child.name];
+            const own = await analyze(join(root, ...path), { top: 0 });
+            folders.push({
+                label: `${path.join('/')}/`,
+                bytes: own.summary.bytes,
+                color: COLORS[dominant(own.types)] ?? COLORS.documents!,
+                parts: await subfolderSizes(join(root, ...path)),
+            });
+        }
+    };
+    await visit([]);
+
+    return {
+        tiles: finish(folders, 'entries'),
+        files: whole.summary.files,
+        directories: whole.summary.directories,
+        bytes: whole.summary.bytes,
+        ms,
+        unit: 'folders',
+        subject: SUBJECT ?? `The ${basename(root)} source tree`,
+        legend: [
+            ['Source code', COLORS.code!],
+            ['Documentation', COLORS.documents!],
+            ['Other files', COLORS.other!],
+        ],
     };
 }
 
@@ -148,11 +282,14 @@ function layoutLabel(
     width: number,
     height: number
 ): { lines: string[]; size: number; height: number } | null {
-    const slash = tile.label.indexOf('/');
+    // "drivers/gpu/drm/amd/" becomes "drivers/" over "…/amd/"; packages wrap after the scope.
+    const segments = tile.label.replace(/\/$/, '').split('/');
     const lines =
-        tile.label.startsWith('@') && slash > 0
-            ? [tile.label.slice(0, slash + 1), tile.label.slice(slash + 1)]
-            : [tile.label];
+        segments.length === 1
+            ? [tile.label]
+            : segments.length === 2
+              ? [`${segments[0]}/`, `${segments[1]}/`]
+              : [`${segments[0]}/`, `…/${segments.at(-1)}/`];
     for (const size of [15, 13]) {
         const chars = Math.floor(width / (size * CHAR_EM));
         const total = 12 + (lines.length + 1) * size * 1.2 + 8;
@@ -228,13 +365,10 @@ function renderMap(tiles: Tile[]): string {
         .join('');
 }
 
-function page(data: Awaited<ReturnType<typeof collect>>): string {
-    const caption = `This repository’s node_modules, scanned by dat in ${Math.max(1, Math.round(data.ms))} ms.<br>${data.packages} packages, ${data.files.toLocaleString('en-US')} files, ${formatBytes(data.bytes)}.`;
-    const legend = [
-        ['JavaScript and types', COLORS.code],
-        ['Native binaries', COLORS.other],
-        ['Smaller packages', COLORS.rest],
-    ] as const;
+function page(data: Collected): string {
+    const n = (value: number): string => value.toLocaleString('en-US');
+    const caption = `${e(data.subject)}, scanned by dat in ${Math.max(1, Math.round(data.ms))} ms.<br>${n(data.files)} files in ${n(data.directories)} ${data.unit}, ${formatBytes(data.bytes)}. Zero dependencies.`;
+    const legend = data.legend;
     return `<!doctype html>
 <html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -270,7 +404,7 @@ function page(data: Awaited<ReturnType<typeof collect>>): string {
 </body></html>`;
 }
 
-const data = await collect();
+const data = PACKAGES ? await collectPackages() : await collectTree(resolve(TARGET!));
 const html = join(tmpdir(), 'dat-banner.html');
 await writeFile(html, page(data));
 const output = join(import.meta.dirname, '..', '.github', 'assets', 'dir-analysis-tool-banner.png');

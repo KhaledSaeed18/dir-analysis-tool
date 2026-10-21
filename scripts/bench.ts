@@ -61,5 +61,5 @@ for (const duplicates of [false, true]) {
             `${Math.round(result.summary.files / (best / 1000)).toLocaleString('en-US')} files/s`
     );
 }
-console.log(`peak RSS ${formatBytes(process.memoryUsage().rss)}`);
+console.log(`peak RSS ${formatBytes(process.resourceUsage().maxRSS * 1024)}`);
 if (synthetic) await rm(target, { recursive: true, force: true });
