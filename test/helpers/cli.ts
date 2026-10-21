@@ -1,4 +1,4 @@
-import { Writable } from 'node:stream';
+import { Writable, type Readable } from 'node:stream';
 import { run } from '../../src/cli/program.ts';
 import type { CliIO } from '../../src/cli/io.ts';
 
@@ -35,6 +35,8 @@ export interface RunOptions {
     tty?: boolean;
     signal?: AbortSignal;
     stdinTTY?: boolean;
+    /** Answers for interactive prompts. */
+    stdin?: Readable;
     /** Receives stdout as it is written. */
     onStdout?: (text: string) => void;
 }
@@ -47,6 +49,7 @@ export async function cli(args: string[], options: RunOptions = {}): Promise<Cli
         stdout,
         stderr,
         stdinIsTTY: options.stdinTTY ?? false,
+        stdin: options.stdin,
         env: { NO_COLOR: '1', ...options.env },
         cwd: options.cwd ?? process.cwd(),
         signal: options.signal,

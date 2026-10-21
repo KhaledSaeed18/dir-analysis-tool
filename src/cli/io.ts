@@ -1,4 +1,4 @@
-import type { Writable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 
 export type OutputStream = Writable & { isTTY?: boolean | undefined; columns?: number | undefined };
 
@@ -7,6 +7,8 @@ export interface CliIO {
     stdout: OutputStream;
     stderr: OutputStream;
     stdinIsTTY: boolean;
+    /** Where interactive prompts read answers from. Defaults to `process.stdin`. */
+    stdin?: Readable | undefined;
     env: Record<string, string | undefined>;
     cwd: string;
     /** Aborted when the user interrupts the process (Ctrl+C). */
@@ -18,6 +20,7 @@ export function processIO(signal?: AbortSignal): CliIO {
         stdout: process.stdout,
         stderr: process.stderr,
         stdinIsTTY: process.stdin.isTTY,
+        stdin: process.stdin,
         env: process.env,
         cwd: process.cwd(),
         signal,

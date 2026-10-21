@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { Option, type Command } from 'commander';
+import { Option, type Command } from '../command.ts';
 import { parseBudget } from '../../core/budgets.ts';
 import { DatError, errorMessage } from '../../errors.ts';
 import { parseSize } from '../../format/bytes.ts';
 import type { DatConfig } from '../../config/schema.ts';
 import type { Context } from '../context.ts';
+import { CANCEL, Prompter, type Cancel } from '../prompt.ts';
 
 export const SCHEMA_URL = 'https://unpkg.com/dir-analysis-tool@3/schema.json';
 
@@ -37,7 +38,7 @@ export function registerInit(program: Command, ctx: Context): void {
                         }
                     );
                 }
-                config = await ask(exists && !options.force);
+                config = await ask(ctx, exists && !options.force);
             }
             if (!config) return;
 
@@ -49,13 +50,11 @@ export function registerInit(program: Command, ctx: Context): void {
         });
 }
 
-/** Interactive questions. Loaded lazily, so other commands never pay for the prompt library. */
-async function ask(confirmOverwrite: boolean): Promise<DatConfig | null> {
-    const p = await import('@clack/prompts');
-    function bail(value: string | symbol): string;
-    function bail(value: boolean | symbol): boolean;
-    function bail(value: string | boolean | symbol): string | boolean {
-        if (typeof value === 'symbol') {
+/** Interactive questions, asked on the CLI's own stdin/stdout. */
+async function ask(ctx: Context, confirmOverwrite: boolean): Promise<DatConfig | null> {
+    const p = new Prompter(ctx.io);
+    function bail<T extends string | boolean>(value: T | Cancel): T {
+        if (value === CANCEL) {
             p.cancel('Cancelled. Nothing was written.');
             throw new CancelledError();
         }
@@ -81,7 +80,6 @@ async function ask(confirmOverwrite: boolean): Promise<DatConfig | null> {
             await p.text({
                 message: 'Patterns to exclude (comma-separated, gitignore syntax)',
                 placeholder: 'coverage/, *.log, tmp/',
-                defaultValue: '',
             })
         );
         const gitignore = bail(
@@ -91,7 +89,6 @@ async function ask(confirmOverwrite: boolean): Promise<DatConfig | null> {
             await p.text({
                 message: 'Report files at least this large (leave empty to skip)',
                 placeholder: '100MiB',
-                defaultValue: '',
                 validate: (value) => validateWith(value, parseSize),
             })
         );
@@ -116,9 +113,8 @@ async function ask(confirmOverwrite: boolean): Promise<DatConfig | null> {
             await p.text({
                 message: 'Budgets that must hold (comma-separated, leave empty for none)',
                 placeholder: 'size<=500MB, duplicates=0',
-                defaultValue: '',
                 validate: (value) => {
-                    for (const rule of splitList(value ?? '')) {
+                    for (const rule of splitList(value)) {
                         const problem = validateWith(rule, parseBudget);
                         if (problem) return problem;
                     }
@@ -141,6 +137,8 @@ async function ask(confirmOverwrite: boolean): Promise<DatConfig | null> {
     } catch (error) {
         if (error instanceof CancelledError) return null;
         throw error;
+    } finally {
+        p.close();
     }
 }
 
