@@ -1,4 +1,4 @@
-import { Option, type Command } from 'commander';
+import { Option, type Command } from '../command.ts';
 import { Excluder } from '../../core/exclude.ts';
 import { listDirectories } from '../../core/options.ts';
 import { AbortError, errorMessage } from '../../errors.ts';

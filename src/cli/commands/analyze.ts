@@ -1,5 +1,5 @@
 import { relative } from 'node:path';
-import type { Command } from 'commander';
+import type { Command } from '../command.ts';
 import { analyze, type AnalyzeOptions } from '../../core/analyze.ts';
 import { formatBudgetActual } from '../../core/budgets.ts';
 import { renderAnalysisCsv } from '../../reporters/csv.ts';

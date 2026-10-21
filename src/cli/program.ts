@@ -1,4 +1,4 @@
-import { Command, CommanderError } from 'commander';
+import { Command, CommanderError } from './command.ts';
 import { AbortError, DatError, errorMessage } from '../errors.ts';
 import { VERSION } from '../version.ts';
 import { normalizeArgv } from './argv.ts';

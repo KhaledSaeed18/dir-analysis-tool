@@ -1,4 +1,4 @@
-import { Option, type Command } from 'commander';
+import { Option, type Command } from '../command.ts';
 import { compare } from '../../core/compare.ts';
 import { renderComparisonAs } from '../../reporters/index.ts';
 import type { Context } from '../context.ts';

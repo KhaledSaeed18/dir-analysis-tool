@@ -1,4 +1,4 @@
-import { InvalidArgumentError, Option, type Command } from 'commander';
+import { InvalidArgumentError, Option, type Command } from './command.ts';
 import type { DatConfig } from '../config/schema.ts';
 import { errorMessage } from '../errors.ts';
 import type { AnalyzeOptions } from '../core/analyze.ts';
