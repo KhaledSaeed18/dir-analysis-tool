@@ -66,9 +66,7 @@ interface FileRef {
     mtimeMs: number;
 }
 
-interface Candidate extends DuplicateCandidate {
-    mtimeMs: number;
-}
+type Candidate = DuplicateCandidate;
 
 interface Features {
     top: number;
@@ -307,13 +305,7 @@ class Collector implements ScanVisitor {
             }
         }
         if (features.duplicates && bytes >= features.minDuplicateSize) {
-            const candidate: Candidate = {
-                dir,
-                name,
-                bytes,
-                mtimeMs,
-                inode: `${stats.dev}:${stats.ino}`,
-            };
+            const candidate: Candidate = { dir, name, bytes, dev: stats.dev, ino: stats.ino };
             const existing = this.#bySize.get(bytes);
             if (existing === undefined) this.#bySize.set(bytes, candidate);
             else if (Array.isArray(existing)) existing.push(candidate);
@@ -338,7 +330,7 @@ class Collector implements ScanVisitor {
                 if (dir === undefined) dirPaths.set(c.dir, (dir = scanner.absolutePath(c.dir)));
                 return joinRelative(dir, c.name);
             },
-            concurrency: Math.min(concurrency, 8),
+            concurrency,
             signal,
             onProgress,
             onError: (c, error) => scanner.recordError(scanner.relativePath(c.dir, c.name), error),

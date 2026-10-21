@@ -8,7 +8,7 @@ import { Excluder } from './exclude.ts';
 import { Scanner, type ScanOptions } from './scanner.ts';
 
 /** Default number of concurrent filesystem operations. */
-export const DEFAULT_CONCURRENCY: number = 16;
+export const DEFAULT_CONCURRENCY: number = 32;
 
 /** Options shared by every operation that walks a directory tree. */
 export interface ScanSettings {

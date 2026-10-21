@@ -13,9 +13,9 @@ import {
 import { createProgressReporter } from './analyze.ts';
 import { comparePaths, joinRelative } from './paths.ts';
 import { classify, emptyTypeStats } from './classify.ts';
-import { hashFile } from './duplicates.ts';
+import { hashFileOfSize } from './duplicates.ts';
 import { Limiter } from './limiter.ts';
-import { resolveScan, type ScanSettings } from './options.ts';
+import { DEFAULT_CONCURRENCY, resolveScan, type ScanSettings } from './options.ts';
 import { AbortError, DatError } from '../errors.ts';
 import { rollUp, Scanner, type DirNode, type ScanVisitor } from './scanner.ts';
 
@@ -127,6 +127,7 @@ export async function compare(
     if (sameSize.length > 0) {
         const differing = await findContentChanges(
             sameSize,
+            (path) => leftIndex.files.get(path)!.bytes,
             a.options.root,
             b.options.root,
             options
@@ -208,21 +209,23 @@ function side(root: string, scanner: Scanner, index: FileIndex): ComparisonSide 
 
 async function findContentChanges(
     paths: string[],
+    sizeOf: (path: string) => number,
     leftRoot: string,
     rightRoot: string,
     options: CompareOptions
 ): Promise<Set<string>> {
     const differing = new Set<string>();
-    const limiter = new Limiter(Math.min(options.concurrency ?? 8, 8));
+    const limiter = new Limiter(options.concurrency ?? DEFAULT_CONCURRENCY);
     const onAbort = (): void => limiter.abort(new AbortError());
     options.signal?.addEventListener('abort', onAbort, { once: true });
     let done = 0;
     for (const path of paths) {
         limiter.run(async () => {
             try {
+                const bytes = sizeOf(path);
                 const [l, r] = await Promise.all([
-                    hashFile(joinRelative(leftRoot, path)),
-                    hashFile(joinRelative(rightRoot, path)),
+                    hashFileOfSize(joinRelative(leftRoot, path), bytes),
+                    hashFileOfSize(joinRelative(rightRoot, path), bytes),
                 ]);
                 if (l !== r) differing.add(path);
             } catch {
