@@ -8,6 +8,22 @@ import { bytes, fixture, isRoot, isWindows } from '../helpers/fixture.ts';
 const KiB = 1024;
 
 describe('analyze: totals and breakdowns', () => {
+    it('honors a nested ignore-all rule while allowing an explicit exception', async () => {
+        const root = await fixture({
+            'visible.txt': 'visible',
+            'hooks/.gitignore': '*\n!keep.txt\n',
+            'hooks/generated.txt': 'ignored',
+            'hooks/nested/generated.txt': 'ignored too',
+            'hooks/keep.txt': 'keep',
+        });
+        const result = await analyze(root, { gitignore: true });
+        expect(result.summary.files).toBe(2);
+        expect(result.largestFiles.map((file) => file.path).sort()).toEqual([
+            'hooks/keep.txt',
+            'visible.txt',
+        ]);
+    });
+
     it('counts files, folders, and bytes, and classifies them', async () => {
         const root = await fixture({
             'src/index.ts': 'x'.repeat(100),

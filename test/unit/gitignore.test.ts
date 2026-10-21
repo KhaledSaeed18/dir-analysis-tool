@@ -16,6 +16,22 @@ function ignored(m: GitignoreMatcher, path: string, isDirectory = false): boolea
 }
 
 describe('GitignoreMatcher', () => {
+    it('matches bare wildcard rules and preserves negation and directory-only behavior', () => {
+        for (const pattern of ['*', '**', '***', '**/*']) {
+            const m = matcher([pattern, '!keep.txt']);
+            expect(m.test('file.txt', false)).toBe(true);
+            expect(m.test('.hidden', false)).toBe(true);
+            expect(m.test('nested/file.txt', false)).toBe(true);
+            expect(m.test('folder', true)).toBe(true);
+            expect(m.test('keep.txt', false)).toBe(false);
+        }
+        for (const pattern of ['*/', '**/']) {
+            const m = matcher(pattern);
+            expect(m.test('folder', true)).toBe(true);
+            expect(m.test('file.txt', false)).toBeUndefined();
+        }
+    });
+
     it('skips blank lines and comments, but keeps escaped # and !', () => {
         const m = matcher(['', '   ', '# comment', '\\#literal', '\\!bang']);
         expect(m.hasRules).toBe(true);
@@ -173,6 +189,6 @@ describe('GitignoreMatcher', () => {
             fast: { kind: 'literal', value: 'foo' },
         });
         expect(parseRule('')).toBeNull();
-        expect(parseRule('**/')).toBeNull();
+        expect(parseRule('**/')).toMatchObject({ dirOnly: true, fast: null });
     });
 });

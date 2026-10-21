@@ -228,8 +228,8 @@ export function parseRule(line: string): Rule | null {
         anchored = false;
         pattern = pattern.replace(/^(\*\*\/)+/, '');
     }
-    // Nothing left to match ("/", "**/", or just stars and slashes).
-    if (pattern === '' || /^[*/]*$/.test(pattern)) return null;
+    // Nothing left to match after stripping path prefixes.
+    if (pattern === '') return null;
 
     const body = globToRegex(pattern);
     if (body === null) return null;
