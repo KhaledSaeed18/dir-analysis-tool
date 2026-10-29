@@ -66,7 +66,7 @@ A few principles keep the code base consistent:
 
 ## Agent skill
 
-`skills/dir-analysis-tool/SKILL.md` documents CLI options and JSON fields for coding agents. When you rename or remove an option, or change what the JSON reports, update the skill too: `test/integration/skill.test.ts` fails when the skill mentions an option the CLI no longer documents or when an expected number in `skills/evals/dir-analysis-tool/evals.json` no longer matches the CLI. See [skills/README.md](skills/README.md) for running the evals in an agent.
+`skills/dir-analysis-tool/SKILL.md` documents CLI options and JSON fields for coding agents. When you rename or remove an option, or change what the JSON reports, update the skill too: `test/integration/skill.test.ts` fails when the skill mentions an option the CLI no longer documents or when an expected number in `skills/evals/dir-analysis-tool/evals.json` no longer matches the CLI. The skill states the oldest CLI version it supports ("3.2 or later") and asks npx for that range; raise it when the skill starts relying on a newer option or JSON field, and the test checks that the stated version has been released. See [skills/README.md](skills/README.md) for running the evals in an agent.
 
 ## Tests
 

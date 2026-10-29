@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AnalysisResult } from '../../src/types.ts';
+import { VERSION } from '../../src/version.ts';
 import { cli, json } from '../helpers/cli.ts';
 
 const exec = promisify(execFile);
@@ -40,6 +41,20 @@ describe('agent skill: SKILL.md', () => {
         expect(description.length).toBeLessThanOrEqual(1024);
         expect(description).not.toMatch(/[<>]/);
         expect((fields['compatibility'] ?? '').length).toBeLessThanOrEqual(500);
+    });
+
+    it('requires a released CLI version and asks npx for it explicitly', async () => {
+        const skill = await text('SKILL.md');
+        const floor =
+            /written for dir-analysis-tool \*\*(\d+)\.(\d+) or later, below (\d+)\*\*/.exec(skill);
+        expect(floor).not.toBeNull();
+        const [major, minor, below] = (floor?.slice(1) ?? []).map(Number);
+        // A plain "@3" lets npx reuse an older cached 3.x, so the range must carry the floor.
+        expect(skill).toContain(`npx --yes "dir-analysis-tool@^${major}.${minor}" --version`);
+        expect(below).toBe((major ?? 0) + 1);
+        const [ownMajor, ownMinor] = VERSION.split('.').map(Number);
+        expect(major).toBe(ownMajor);
+        expect(minor).toBeLessThanOrEqual(ownMinor ?? 0);
     });
 
     it('links only to files that exist', async () => {
