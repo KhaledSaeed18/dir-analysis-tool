@@ -30,3 +30,6 @@ ehthumbs.db
 # Scratch space
 tmp/
 temp/
+
+# Private planning notes
+.project-planning/

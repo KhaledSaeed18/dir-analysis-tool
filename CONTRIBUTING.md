@@ -50,7 +50,10 @@ src/
   index.ts     the public library API
 test/
   unit/        pure functions and renderers
-  integration/ real temporary directory trees, the CLI, watch mode, and init
+  integration/ real temporary directory trees, the CLI, watch mode, init, and the agent skill
+skills/
+  dir-analysis-tool/        the agent skill (SKILL.md and its reference); not part of the npm package
+  evals/dir-analysis-tool/  eval prompts and the fixture generator, kept out of the installed skill
 ```
 
 A few principles keep the code base consistent:
@@ -60,6 +63,10 @@ A few principles keep the code base consistent:
 - **Memory stays bounded.** Anything computed per file during a scan must use constant memory, unless the user opted into a report that lists those files.
 - **Output is deterministic.** Sort by size, then by path with `comparePaths`, never by discovery order.
 - **Stdout is for the report only.** Messages, warnings, and progress go to stderr.
+
+## Agent skill
+
+`skills/dir-analysis-tool/SKILL.md` documents CLI options and JSON fields for coding agents. When you rename or remove an option, or change what the JSON reports, update the skill too: `test/integration/skill.test.ts` fails when the skill mentions an option the CLI no longer documents or when an expected number in `skills/evals/dir-analysis-tool/evals.json` no longer matches the CLI. See [skills/README.md](skills/README.md) for running the evals in an agent.
 
 ## Tests
 

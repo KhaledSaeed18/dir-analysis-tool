@@ -52,6 +52,7 @@ npx dir-analysis-tool
 - [Output formats](#output-formats)
 - [Configuration](#configuration)
 - [Library API](#library-api)
+- [Agent skill](#agent-skill)
 - [How it works](#how-it-works)
 - [Exit codes](#exit-codes)
 - [Migrating from v2](#migrating-from-v2)
@@ -424,6 +425,16 @@ await writeFile('report.md', renderAnalysisMarkdown(result));
 | `DatError`, `AbortError`                                                              | Expected failures, and cancellation through `signal`.                                                                                                                                                                                  |
 
 Sizes and times accept the same strings as the CLI (`minSize: '10MB'`, `modifiedAfter: '30d'`), as well as numbers and `Date`s.
+
+## Agent skill
+
+An official [Agent Skill](https://agentskills.io) lets coding agents such as Claude Code, Codex, Gemini CLI, and OpenCode use `dat` to explain what takes up space in a repository, find duplicate assets, and check size budgets. The agents run the CLI and read its JSON output instead of guessing.
+
+```bash
+npx skills add KhaledSaeed18/dir-analysis-tool --skill dir-analysis-tool
+```
+
+Then ask in your own words, for example "why is this repo so big?" or "fail CI if `dist` goes over 2 MB". See [skills/README.md](skills/README.md) for other ways to install it, tested agents, and the evals.
 
 ## How it works
 

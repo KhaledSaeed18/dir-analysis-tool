@@ -1,0 +1,22 @@
+[
+    { "query": "why is my repo 4GB? the source is tiny", "should_trigger": true },
+    {
+        "query": "which folders in ~/Downloads are taking up the most space",
+        "should_trigger": true
+    },
+    { "query": "find duplicate images in the assets folder", "should_trigger": true },
+    {
+        "query": "how much space would I save by removing duplicate files in public/",
+        "should_trigger": true
+    },
+    { "query": "make the build fail if dist is bigger than 2MB", "should_trigger": true },
+    { "query": "check that no file in the bundle is over 500kB", "should_trigger": true },
+    { "query": "what are the largest files in this project", "should_trigger": true },
+    { "query": "my docker build context is huge, what is in it", "should_trigger": true },
+    { "query": "reduce the bundle size by code splitting the routes", "should_trigger": false },
+    { "query": "find duplicated code blocks in src", "should_trigger": false },
+    { "query": "free up memory in this node process", "should_trigger": false },
+    { "query": "resize these images to 800px wide", "should_trigger": false },
+    { "query": "how much disk space is free on my machine", "should_trigger": false },
+    { "query": "remove duplicate rows from this CSV", "should_trigger": false }
+]

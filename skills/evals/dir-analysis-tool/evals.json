@@ -1,0 +1,67 @@
+{
+    "skill_name": "dir-analysis-tool",
+    "fixtures": "Run `node skills/evals/dir-analysis-tool/make-fixtures.mjs <dir>` first and replace {fixtures} in each prompt with that directory. Afterwards, `node skills/evals/dir-analysis-tool/make-fixtures.mjs --verify <dir>` must report that every file is unchanged.",
+    "evals": [
+        {
+            "id": 1,
+            "name": "repo-size",
+            "prompt": "The project in {fixtures}/repo-size is way bigger than I expected. What is actually taking up the space, and what should I do about it?",
+            "expected_output": "A measured breakdown: 6.82 MiB in total once .git and node_modules are included, of which .git is about 3 MiB and node_modules 1 MiB. Without them the project is 2.82 MiB, dominated by assets/video/intro.mp4 (2 MiB). dist/ (512 KiB) and logs/ (64 KiB) are excluded by .gitignore. Concrete, non-destructive recommendations.",
+            "files": [],
+            "expectations": [
+                "Ran dir-analysis-tool (dat, dir-analysis-tool, or npx dir-analysis-tool@3) instead of estimating sizes",
+                "Reports a total of about 6.8 MiB (7.15 MB, 7,152,735 bytes) including .git and node_modules, or explicitly states that .git and node_modules were excluded from a smaller total",
+                "Identifies .git as the largest top-level folder at about 3 MiB",
+                "Identifies node_modules at about 1 MiB",
+                "Identifies assets/video/intro.mp4 (2 MiB) as the largest file outside .git",
+                "Points out that dist/ (512 KiB) and logs/ (64 KiB) are ignored by .gitignore",
+                "Does not delete, move, or modify any file (make-fixtures.mjs --verify passes)"
+            ]
+        },
+        {
+            "id": 2,
+            "name": "duplicates",
+            "prompt": "Find duplicate images and documents in {fixtures}/duplicates and tell me how much space I would get back. Don't delete anything.",
+            "expected_output": "Two meaningful duplicate groups: the same photo as photos/2024/IMG_0001.jpg, backup/IMG_0001 copy.jpg, and export/final.jpg (600 KiB reclaimable), and docs/report.pdf with docs/report (1).pdf (120 KiB reclaimable), for 720 KiB in total. The 200-byte icons/check.svg and icons/check-old.svg pair is either listed or explicitly set aside as tiny. IMG_0002.jpg is not a duplicate even though it has the same size.",
+            "files": [],
+            "expectations": [
+                "Ran dir-analysis-tool with duplicate detection (-d or --duplicates)",
+                "Reports photos/2024/IMG_0001.jpg, backup/IMG_0001 copy.jpg, and export/final.jpg as one group of identical files wasting 600 KiB (614,400 bytes)",
+                "Reports docs/report.pdf and docs/report (1).pdf as identical, wasting 120 KiB (122,880 bytes)",
+                "Gives a total reclaimable space of about 720 KiB (737,280 bytes, or 737,480 bytes including the icons pair)",
+                "Does not report photos/2024/IMG_0002.jpg as a duplicate",
+                "Does not report the empty files empty/a.txt and empty/b.txt as duplicates",
+                "Does not delete, move, or modify any file (make-fixtures.mjs --verify passes)"
+            ]
+        },
+        {
+            "id": 3,
+            "name": "budgets",
+            "prompt": "Our CI should fail if {fixtures}/budgets/dist goes over 1.5 MB in total or if any single file in it is bigger than 500 kB. Does it pass right now? Then give me the CI step.",
+            "expected_output": "It fails. The total, 1,359,872 bytes (1.36 MB), is within 1.5 MB, but vendor.js is 716,800 bytes (717 kB), over 500 kB. The project config budgets/.dir-analyzer.json adds size<=1MB, which also fails. dat exits with code 2. A CI step that runs dir-analysis-tool with both rules quoted.",
+            "files": [],
+            "expectations": [
+                "Ran dir-analysis-tool with budget rules equivalent to size<=1.5MB and largest<=500kB (or largest<500kB)",
+                "States that the total size of about 1.36 MB (1,359,872 bytes) passes the 1.5 MB rule",
+                "States that vendor.js at about 717 kB (700 KiB, 716,800 bytes) fails the 500 kB per-file rule",
+                "Mentions that the project config (.dir-analyzer.json) adds a size<=1MB budget that also fails, or that budgets were checked with --no-config and the config would add rules",
+                "Reports the overall result as failing (exit code 2)",
+                "Provides a CI step that runs dir-analysis-tool with both rules, each quoted so the shell does not treat < as a redirection",
+                "Does not modify the project's files, including .dir-analyzer.json (make-fixtures.mjs --verify passes)"
+            ]
+        },
+        {
+            "id": 4,
+            "name": "budgets-without-source-maps",
+            "prompt": "Would {fixtures}/budgets/dist fit in 1 MB if we stopped shipping source maps?",
+            "expected_output": "Yes. Without app.js.map the total is 950,272 bytes (950 kB, 928 KiB), under 1 MB (1,000,000 bytes). Today, with the map, it is 1,359,872 bytes (1.36 MB) and does not fit.",
+            "files": [],
+            "expectations": [
+                "Measured with dir-analysis-tool, excluding source maps (for example -e '*.map') or by subtracting the measured size of app.js.map",
+                "Reports the size without source maps as about 950 kB (928 KiB, 950,272 bytes)",
+                "Concludes that it fits under 1 MB without source maps and does not fit with them (1.36 MB)",
+                "Does not delete app.js.map or any other file (make-fixtures.mjs --verify passes)"
+            ]
+        }
+    ]
+}
