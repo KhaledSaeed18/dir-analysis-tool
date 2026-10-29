@@ -1,6 +1,6 @@
 {
     "name": "dir-analysis-tool",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "description": "Fast, zero-dependency directory analysis for your terminal and CI: largest folders and files, type and extension breakdowns, staged duplicate detection, size budgets, directory diffs, and self-contained HTML, Markdown, JSON, and CSV reports.",
     "type": "module",
     "exports": {

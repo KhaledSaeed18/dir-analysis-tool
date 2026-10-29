@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.1.0...v3.2.0) (2026-10-29)
+
+### Features
+
+* **skills:** add the official agent skill for size, duplicates, and budgets ([dbfbef7](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/dbfbef70e16cb325859c2dd30dcda01bfa6abcef))
+* **skills:** add the official agent skill for size, duplicates, and budgets ([#4](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/4)) ([fd3f0e3](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/fd3f0e3030a876cb731cb5960bce6113807d5ff5))
+
 ## [3.1.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.0.1...v3.1.0) (2026-10-21)
 
 ### Features
