@@ -2,7 +2,7 @@
 name: dir-analysis-tool
 description: Measure what takes up space in a repository or directory, find duplicate files and the space they waste, and check size budgets (bundle size, artifact size, file count) with the dir-analysis-tool CLI (`dat`). Use when someone asks why a repo, folder, build output, or Docker context is large, wants the biggest files or folders, wants duplicate assets found, or wants a size limit verified or enforced in CI. Read-only; it never deletes files.
 license: MIT
-compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.x from npm (installed or through npx); network access is needed only if npx must download it.
+compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.2 or later (below 4) from npm (installed or through npx); network access is needed only if npx must download it.
 metadata:
   author: Khaled Saeed
   version: '1.0.0'
@@ -15,14 +15,20 @@ Answer size questions with measurements from `dir-analysis-tool`, a zero-depende
 
 ## 1. Pick the command once
 
-Run these checks in order and use the first one that prints a `3.x` version:
+This skill is written for dir-analysis-tool **3.2 or later, below 4**. Run these checks in order and use the first one that prints such a version:
 
 ```bash
-dir-analysis-tool --version          # installed globally
-npx --yes dir-analysis-tool@3 --version   # no install needed; downloads to the npx cache
+dir-analysis-tool --version                    # installed globally
+npx --yes "dir-analysis-tool@^3.2" --version   # no install needed; downloads to the npx cache
 ```
 
-The examples below write `dat` for whichever command worked. Only type a bare `dat` if `dat --version` prints `3.x`, because an unrelated program is also called `dat`. Inside the dir-analysis-tool source repository you can also use `node dist/cli.js` after `pnpm build`.
+Keep the quotes and the `^3.2` range: a plain `@3` lets npx reuse any older cached 3.x without checking for a newer one.
+
+- If the global install prints an older 3.x, prefer the npx command, and suggest `npm install -g dir-analysis-tool@latest` to the user rather than running it yourself.
+- If npx fails (no network, sandbox, registry error) and an older 3.x is installed, use that one: every command in this skill works from 3.0. Tell the user which version you ran.
+- Never replace the tool with your own scripts (`du`, `find`, hashing code) without telling the user that you did and why. Measurements from your own script are not results from dir-analysis-tool.
+
+The examples below write `dat` for whichever command worked. Only type a bare `dat` if `dat --version` prints a suitable version, because an unrelated program is also called `dat`. Inside the dir-analysis-tool source repository you can also use `node dist/cli.js` after `pnpm build`.
 
 If Node.js is missing or older than 22.12, stop and tell the user; do not fall back to guessing sizes with other tools without saying so.
 
