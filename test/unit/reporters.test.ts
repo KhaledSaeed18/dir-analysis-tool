@@ -37,6 +37,19 @@ async function fullResult() {
 }
 
 describe('pretty', () => {
+    it('escapes control characters in error details and budget rules', async () => {
+        const result = await fullResult();
+        result.errors = [{ path: 'dir\u001b[2J', code: 'EACCES', message: 'denied\u0007' }];
+        result.summary.errors = 1;
+        result.budgets![0]!.rule = 'size\u001b[31m<1MB';
+        const text = renderAnalysis(result, { width: 120 });
+        expect(text).toContain('dir\\x1b[2J');
+        expect(text).toContain('denied\\x07');
+        expect(text).toContain('size\\x1b[31m<1MB');
+        expect(text).not.toContain('\u001b');
+        expect(text).not.toContain('\u0007');
+    });
+
     it('renders every section without color codes when styling is off', async () => {
         const result = await fullResult();
         const text = renderAnalysis(result, { extensions: true, width: 120 });
@@ -90,6 +103,9 @@ describe('markdown', () => {
     it('escapes table-breaking characters', () => {
         expect(mdCode('a|b')).toBe('`a\\|b`');
         expect(mdCode('a`b')).toBe('`` a`b ``');
+        // A longer run of backticks must not close the fence and expose the rest as Markdown.
+        expect(mdCode('a``![x](y)``b')).toBe('``` a``![x](y)``b ```');
+        expect(mdCode('a\u001b[31m\nb')).toBe('`a\\x1b[31m\\nb`');
     });
 
     it('renders analyses and comparisons as GFM tables', async () => {
@@ -112,6 +128,7 @@ describe('csv', () => {
         expect(csvCell('a,b')).toBe('"a,b"');
         expect(csvCell('say "hi"')).toBe('"say ""hi"""');
         expect(csvCell('line\nbreak')).toBe('"line\nbreak"');
+        expect(csvCell('evil\u001b[31m.txt')).toBe('evil\\x1b[31m.txt');
         expect(csvCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
         expect(csvCell('+1')).toBe("'+1");
         expect(csvCell(42)).toBe('42');

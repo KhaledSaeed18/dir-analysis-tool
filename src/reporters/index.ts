@@ -1,5 +1,6 @@
 import type { ByteUnits } from '../format/bytes.ts';
 import type { Style } from '../format/style.ts';
+import { stringifyJson } from '../format/text.ts';
 import type { AnalysisResult, ComparisonResult } from '../types.ts';
 import { renderAnalysisCsv, renderComparisonCsv } from './csv.ts';
 import { renderAnalysisHtml } from './html.ts';
@@ -27,7 +28,7 @@ export function renderAnalysisAs(
         case 'pretty':
             return renderAnalysis(result, options);
         case 'json':
-            return `${JSON.stringify(result, null, 2)}\n`;
+            return `${stringifyJson(result, 2)}\n`;
         case 'markdown':
             return renderAnalysisMarkdown(result, options);
         case 'csv':
@@ -46,7 +47,7 @@ export function renderComparisonAs(
         case 'pretty':
             return renderComparison(result, options);
         case 'json':
-            return `${JSON.stringify(result, null, 2)}\n`;
+            return `${stringifyJson(result, 2)}\n`;
         case 'markdown':
             return renderComparisonMarkdown(result, options);
         case 'csv':

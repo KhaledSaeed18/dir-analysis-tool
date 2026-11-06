@@ -1,5 +1,6 @@
 import { Command, CommanderError } from './command.ts';
 import { AbortError, DatError, errorMessage } from '../errors.ts';
+import { escapeControlInLines } from '../format/text.ts';
 import { VERSION } from '../version.ts';
 import { normalizeArgv } from './argv.ts';
 import { registerAnalyze } from './commands/analyze.ts';
@@ -19,7 +20,7 @@ export function createProgram(ctx: Context): Command {
         .configureOutput({
             writeOut: (text) => io.stdout.write(text),
             writeErr: (text) => io.stderr.write(text),
-            outputError: (text, write) => write(ctx.err.red(text)),
+            outputError: (text, write) => write(ctx.err.red(escapeControlInLines(text))),
         })
         .showHelpAfterError('(run "dat --help" to see all options)')
         .showSuggestionAfterError(true)
@@ -65,14 +66,14 @@ function handleError(error: unknown, ctx: Context): number {
         return ExitCode.Interrupted;
     }
     if (error instanceof DatError) {
-        io.stderr.write(`${err.red('error')} ${error.message}\n`);
-        if (error.hint) io.stderr.write(`${err.dim(error.hint)}\n`);
+        io.stderr.write(`${err.red('error')} ${escapeControlInLines(error.message)}\n`);
+        if (error.hint) io.stderr.write(`${err.dim(escapeControlInLines(error.hint))}\n`);
         return ExitCode.Error;
     }
-    const message = errorMessage(error);
+    const message = escapeControlInLines(errorMessage(error));
     io.stderr.write(`${err.red('error')} ${message}\n`);
     if (io.env['DAT_DEBUG'] && error instanceof Error && error.stack) {
-        io.stderr.write(`${err.dim(error.stack)}\n`);
+        io.stderr.write(`${err.dim(escapeControlInLines(error.stack))}\n`);
     } else {
         io.stderr.write(
             `${err.dim('Set DAT_DEBUG=1 for a stack trace. Please report unexpected errors: https://github.com/KhaledSaeed18/dir-analysis-tool/issues')}\n`

@@ -4,6 +4,7 @@ import { Option, type Command } from '../command.ts';
 import { parseBudget } from '../../core/budgets.ts';
 import { DatError, errorMessage } from '../../errors.ts';
 import { parseSize } from '../../format/bytes.ts';
+import { escapeControl } from '../../format/text.ts';
 import type { DatConfig } from '../../config/schema.ts';
 import type { Context } from '../context.ts';
 import { CANCEL, Prompter, type Cancel } from '../prompt.ts';
@@ -46,7 +47,7 @@ export function registerInit(program: Command, ctx: Context): void {
                 path,
                 `${JSON.stringify({ $schema: SCHEMA_URL, ...config }, null, 4)}\n`
             );
-            ctx.info(`${ctx.err.green('✔')} Wrote ${file}`, false);
+            ctx.info(`${ctx.err.green('✔')} Wrote ${escapeControl(file)}`, false);
         });
 }
 

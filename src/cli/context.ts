@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { loadConfig, type LoadedConfig } from '../config/load.ts';
 import { createStyle, supportsColor, type Style } from '../format/style.ts';
+import { escapeControlInLines } from '../format/text.ts';
 import type { CliIO } from './io.ts';
 import { write } from './io.ts';
 
@@ -32,7 +33,8 @@ export class Context {
     }
 
     warn(message: string): void {
-        this.io.stderr.write(`${this.err.yellow('warning')} ${message}\n`);
+        // Warnings can quote a config file, which may come from an untrusted repository.
+        this.io.stderr.write(`${this.err.yellow('warning')} ${escapeControlInLines(message)}\n`);
     }
 
     async loadConfig(cli: Record<string, unknown>, searchFrom: string): Promise<LoadedConfig> {

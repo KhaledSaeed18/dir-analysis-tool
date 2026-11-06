@@ -3,7 +3,12 @@ import { Excluder } from '../../core/exclude.ts';
 import { listDirectories } from '../../core/options.ts';
 import { AbortError, errorMessage } from '../../errors.ts';
 import { formatBytes } from '../../format/bytes.ts';
-import { formatCount } from '../../format/text.ts';
+import {
+    escapeControl,
+    escapeControlInLines,
+    formatCount,
+    stringifyJson,
+} from '../../format/text.ts';
 import type { AnalysisResult } from '../../types.ts';
 import type { Context } from '../context.ts';
 import {
@@ -87,7 +92,7 @@ export function registerWatch(program: Command, ctx: Context): void {
 
         const render = async (result: AnalysisResult): Promise<void> => {
             if (display.format === 'json') {
-                await ctx.stdout(`${JSON.stringify(result)}\n`);
+                await ctx.stdout(`${stringifyJson(result)}\n`);
                 return;
             }
             if (clear) await ctx.stdout(CLEAR_SCREEN);
@@ -102,7 +107,7 @@ export function registerWatch(program: Command, ctx: Context): void {
                 : 'initial scan';
             ctx.info(
                 ctx.err.dim(
-                    `watching ${target} · ${status} · ${new Date().toLocaleTimeString()} · Ctrl+C to stop`
+                    `watching ${escapeControl(target)} · ${status} · ${new Date().toLocaleTimeString()} · Ctrl+C to stop`
                 ),
                 display.quiet
             );
@@ -139,7 +144,9 @@ export function registerWatch(program: Command, ctx: Context): void {
                 }
             } catch (error) {
                 if (error instanceof AbortError) return;
-                ctx.io.stderr.write(`${ctx.err.red('error')} ${errorMessage(error)}\n`);
+                ctx.io.stderr.write(
+                    `${ctx.err.red('error')} ${escapeControlInLines(errorMessage(error))}\n`
+                );
             } finally {
                 running = false;
             }
@@ -168,7 +175,7 @@ export function registerWatch(program: Command, ctx: Context): void {
                 onChange: schedule,
                 onError: (error) => {
                     ctx.warn(
-                        `file watching failed (${error.message}); falling back to polling every 5 seconds`
+                        `file watching failed (${escapeControl(error.message)}); falling back to polling every 5 seconds`
                     );
                     watcher?.close();
                     watcher = null;

@@ -4,12 +4,13 @@ import { createStyle, type Style } from '../format/style.ts';
 import { formatAge, formatElapsed } from '../format/time.ts';
 import {
     bar,
+    escapeControl,
+    fitPath,
     formatCount,
     formatPercent,
     padEndVisible,
     padStartVisible,
     plural,
-    truncateMiddle,
 } from '../format/text.ts';
 import {
     CATEGORIES,
@@ -96,7 +97,7 @@ class Renderer {
             const suffix = extra ? `  ${this.s.dim(extra(item))}` : '';
             const used = 3 + SIZE_WIDTH + 2 + (extra ? extra(item).length + 2 : 0);
             this.line(
-                `   ${this.size(item.bytes)}  ${truncateMiddle(item.path, this.room(used))}${suffix}`
+                `   ${this.size(item.bytes)}  ${fitPath(item.path, this.room(used))}${suffix}`
             );
         }
         this.more(shown.length, total);
@@ -111,7 +112,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
     const sum = result.summary;
 
     r.line(
-        ` ${s.bold(s.blue('dat'))}  ${s.bold(truncateMiddle(result.root, r.room(20)))}  ${s.dim(formatElapsed(result.durationMs))}`
+        ` ${s.bold(s.blue('dat'))}  ${s.bold(fitPath(result.root, r.room(20)))}  ${s.dim(formatElapsed(result.durationMs))}`
     );
     r.line('');
     const row = (label: string, value: string): void =>
@@ -153,7 +154,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
         for (const dir of result.largestDirectories.slice(0, r.limit)) {
             const files = plural(dir.files, 'file');
             r.line(
-                `   ${r.size(dir.bytes)}  ${truncateMiddle(`${dir.path}/`, r.room(3 + SIZE_WIDTH + 4 + files.length))}  ${s.dim(files)}`
+                `   ${r.size(dir.bytes)}  ${fitPath(`${dir.path}/`, r.room(3 + SIZE_WIDTH + 4 + files.length))}  ${s.dim(files)}`
             );
         }
     }
@@ -179,7 +180,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
             result.emptyFiles.count > 0 ? plural(result.emptyFiles.count, 'file') : 'none'
         );
         for (const file of result.emptyFiles.items.slice(0, r.limit)) {
-            r.line(`   ${truncateMiddle(file.path, r.room(3))}`);
+            r.line(`   ${fitPath(file.path, r.room(3))}`);
         }
         r.more(Math.min(r.limit, result.emptyFiles.items.length), result.emptyFiles.count);
     }
@@ -187,7 +188,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
         const ed = result.emptyDirectories;
         r.heading('Empty folders', ed.count > 0 ? plural(ed.count, 'folder') : 'none');
         for (const dir of ed.items.slice(0, r.limit)) {
-            r.line(`   ${truncateMiddle(`${dir}/`, r.room(3))}`);
+            r.line(`   ${fitPath(`${dir}/`, r.room(3))}`);
         }
         r.more(Math.min(r.limit, ed.items.length), ed.count);
     }
@@ -209,9 +210,10 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
         r.heading('Unreadable', plural(sum.errors, 'path'));
         const shown = result.errors.slice(0, 5);
         for (const error of shown) {
-            const used = 3 + 8 + 2 + error.message.length;
+            const message = escapeControl(error.message);
+            const used = 3 + 8 + 2 + message.length;
             r.line(
-                `   ${s.yellow(padEndVisible(error.code, 8))}${truncateMiddle(error.path, r.room(used))}  ${s.dim(error.message)}`
+                `   ${s.yellow(padEndVisible(error.code, 8))}${fitPath(error.path, r.room(used))}  ${s.dim(message)}`
             );
         }
         r.more(shown.length, sum.errors);
@@ -224,7 +226,7 @@ export function renderAnalysis(result: AnalysisResult, options: PrettyOptions = 
             const actual = formatBudgetActual(budget, r.units);
             const mark = budget.passed ? s.green('✔') : s.red('✘');
             r.line(
-                `   ${mark} ${padEndVisible(budget.rule, 24)} ${s.dim('actual')} ${budget.passed ? actual : s.red(actual)}`
+                `   ${mark} ${padEndVisible(escapeControl(budget.rule), 24)} ${s.dim('actual')} ${budget.passed ? actual : s.red(actual)}`
             );
         }
     }
@@ -257,7 +259,7 @@ function renderExtensions(r: Renderer, result: AnalysisResult): void {
     const shown = result.extensions.slice(0, r.limit);
     for (const ext of shown) {
         r.line(
-            `   ${padEndVisible(ext.extension || s.dim('(none)'), 12)} ${r.size(ext.bytes)} ${padStartVisible(formatPercent(ext.bytes, total), 5)}  ${s.dim(plural(ext.files, 'file'))}`
+            `   ${padEndVisible(escapeControl(ext.extension) || s.dim('(none)'), 12)} ${r.size(ext.bytes)} ${padStartVisible(formatPercent(ext.bytes, total), 5)}  ${s.dim(plural(ext.files, 'file'))}`
         );
     }
     r.more(shown.length, result.extensions.length);
@@ -283,9 +285,7 @@ function renderDuplicates(
         );
         const files = group.files.slice(0, 5);
         for (const file of files) {
-            r.line(
-                `   ${' '.repeat(SIZE_WIDTH)}  ${truncateMiddle(file, r.room(3 + SIZE_WIDTH + 2))}`
-            );
+            r.line(`   ${' '.repeat(SIZE_WIDTH)}  ${fitPath(file, r.room(3 + SIZE_WIDTH + 2))}`);
         }
         if (group.files.length > files.length) {
             r.line(
@@ -302,7 +302,7 @@ function renderTree(r: Renderer, root: TreeNode): void {
         const connector = isRoot ? '' : isLast ? '└─ ' : '├─ ';
         const used = 3 + SIZE_WIDTH + 2 + prefix.length + connector.length;
         const label = node.type === 'directory' && !isRoot ? `${node.name}/` : node.name;
-        const name = truncateMiddle(label, Math.max(12, r.width - used));
+        const name = fitPath(label, Math.max(12, r.width - used));
         r.line(
             `   ${r.size(node.bytes)}  ${s.dim(prefix + connector)}${node.type === 'directory' ? s.bold(name) : name}`
         );
@@ -338,8 +338,8 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
 
     r.line(` ${s.bold(s.blue('dat compare'))}  ${s.dim(formatElapsed(result.durationMs))}`);
     r.line('');
-    r.line(`   ${s.dim('left ')}  ${truncateMiddle(result.left.root, r.room(12))}`);
-    r.line(`   ${s.dim('right')}  ${truncateMiddle(result.right.root, r.room(12))}`);
+    r.line(`   ${s.dim('left ')}  ${fitPath(result.left.root, r.room(12))}`);
+    r.line(`   ${s.dim('right')}  ${fitPath(result.right.root, r.room(12))}`);
 
     const col = (text: string): string => padStartVisible(text, 12);
     r.heading('Overview');
@@ -381,9 +381,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
         if (list.count === 0) return;
         r.heading(title, `${plural(list.count, 'file')} · ${r.bytes(list.bytes)}`);
         for (const f of list.items.slice(0, r.limit)) {
-            r.line(
-                `   ${mark} ${r.size(f.bytes)}  ${truncateMiddle(f.path, r.room(5 + SIZE_WIDTH + 2))}`
-            );
+            r.line(`   ${mark} ${r.size(f.bytes)}  ${fitPath(f.path, r.room(5 + SIZE_WIDTH + 2))}`);
         }
         r.more(Math.min(r.limit, list.items.length), list.count);
     };
@@ -399,7 +397,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
             const detail =
                 c.delta === 0 ? 'content' : `${r.bytes(c.leftBytes)} → ${r.bytes(c.rightBytes)}`;
             r.line(
-                `   ${s.yellow('~')} ${padStartVisible(signed(c.delta), SIZE_WIDTH)}  ${truncateMiddle(c.path, r.room(5 + SIZE_WIDTH + 4 + detail.length))}  ${s.dim(detail)}`
+                `   ${s.yellow('~')} ${padStartVisible(signed(c.delta), SIZE_WIDTH)}  ${fitPath(c.path, r.room(5 + SIZE_WIDTH + 4 + detail.length))}  ${s.dim(detail)}`
             );
         }
         r.more(Math.min(r.limit, result.changed.items.length), result.changed.count);
@@ -409,7 +407,7 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
         r.heading('Folders that changed most');
         for (const d of result.directories.slice(0, r.limit)) {
             r.line(
-                `   ${padStartVisible(signed(d.delta), SIZE_WIDTH + 2)}  ${truncateMiddle(`${d.path}/`, r.room(5 + SIZE_WIDTH + 2))}`
+                `   ${padStartVisible(signed(d.delta), SIZE_WIDTH + 2)}  ${fitPath(`${d.path}/`, r.room(5 + SIZE_WIDTH + 2))}`
             );
         }
     }
