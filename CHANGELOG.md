@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.2.0...v3.2.1) (2026-11-06)
+
+### Bug Fixes
+
+* **core:** match Git on ignore rules and stop wildcard rules from hanging ([c83654b](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/c83654b59c1fa3b6a752ad9593b539f252b0b824))
+* **reporters:** escape control characters from file names ([e04ed41](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/e04ed4160c289644b023d435b3042c896bacdd39))
+
 ## [3.2.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.1.0...v3.2.0) (2026-10-29)
 
 ### Features
