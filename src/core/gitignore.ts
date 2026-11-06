@@ -11,6 +11,11 @@
  * expression, so a typical ignore file is tested with one or two regex
  * matches per path instead of one per rule. Later rules win, so the merged
  * runs are tried last to first.
+ *
+ * A regular expression with several wildcards can backtrack for a very long
+ * time on a long name, and an ignore file may come from an untrusted repository.
+ * Rules with two or more wildcards therefore run on {@link LinearGlob}, whose
+ * time grows linearly with the length of the path.
  */
 
 export interface GitignoreOptions {
@@ -30,6 +35,8 @@ interface Run {
     /** Rules that need the whole path. */
     anyPath: RegExp | null;
     dirPath: RegExp | null;
+    /** Rules with several wildcards, which are not safe to give to a regular expression. */
+    globs: LinearGlob[] | null;
 }
 
 /**
@@ -61,6 +68,7 @@ export class GitignoreMatcher {
         const runs = this.#runs;
         let name: string | undefined;
         let folded: string | undefined;
+        let foldedPath: string | undefined;
         for (let i = runs.length - 1; i >= 0; i--) {
             const run = runs[i]!;
             const fast = isDirectory && run.dirFast !== null ? true : run.anyFast !== null;
@@ -80,6 +88,22 @@ export class GitignoreMatcher {
             if (run.anyPath?.test(path) || (isDirectory && run.dirPath?.test(path))) {
                 return !run.negated;
             }
+            if (run.globs !== null) {
+                name ??= path.slice(path.lastIndexOf('/') + 1);
+                for (const glob of run.globs) {
+                    if (glob.dirOnly && !isDirectory) continue;
+                    // Most rules are ruled out here, without running the matcher at all.
+                    if (this.#ignoreCase) {
+                        const lower = glob.nameOnly
+                            ? (folded ??= name.toLowerCase())
+                            : (foldedPath ??= path.toLowerCase());
+                        if (!lower.includes(glob.required)) continue;
+                    } else if (!(glob.nameOnly ? name : path).includes(glob.required)) {
+                        continue;
+                    }
+                    if (glob.matches(glob.nameOnly ? name : path)) return !run.negated;
+                }
+            }
         }
         return undefined;
     }
@@ -89,7 +113,9 @@ export class GitignoreMatcher {
         source: string | readonly string[],
         options: GitignoreOptions = {}
     ): GitignoreMatcher {
-        const lines = typeof source === 'string' ? source.split(/\r?\n/) : source;
+        // Like Git, skip a leading byte order mark and strip one CR from each line ending.
+        const lines =
+            typeof source === 'string' ? source.replace(/^\uFEFF/, '').split(EOL) : source;
         const ignoreCase = options.ignoreCase === true;
         const flags = ignoreCase ? 'i' : '';
         const runs: Run[] = [];
@@ -106,6 +132,7 @@ export class GitignoreMatcher {
                 dirName: regex(parts.dirName),
                 anyPath: regex(parts.anyPath),
                 dirPath: regex(parts.dirPath),
+                globs: parts.globs.length > 0 ? parts.globs : null,
             };
             if (
                 run.anyFast ||
@@ -113,7 +140,8 @@ export class GitignoreMatcher {
                 run.anyName ||
                 run.dirName ||
                 run.anyPath ||
-                run.dirPath
+                run.dirPath ||
+                run.globs
             ) {
                 runs.push(run);
             }
@@ -132,6 +160,8 @@ export class GitignoreMatcher {
                 const value = ignoreCase ? rule.fast.value.toLowerCase() : rule.fast.value;
                 if (rule.fast.kind === 'literal') target.literals.add(value);
                 else target.addSuffix(value);
+            } else if (rule.wildcards >= LINEAR_GLOB_WILDCARDS) {
+                parts.globs.push(new LinearGlob(rule, ignoreCase));
             } else if (rule.nameOnly) {
                 (rule.dirOnly ? parts.dirName : parts.anyName).push(rule.source);
             } else {
@@ -177,6 +207,199 @@ class RunParts {
     readonly dirName: string[] = [];
     readonly anyPath: string[] = [];
     readonly dirPath: string[] = [];
+    readonly globs: LinearGlob[] = [];
+}
+
+/** One step of a parsed glob. */
+type Token =
+    | { kind: 'char'; char: string }
+    | { kind: 'class'; source: string }
+    /** `?`: one character other than a slash. */
+    | { kind: 'any' }
+    /** `*`: any characters other than a slash. */
+    | { kind: 'star' }
+    /** A trailing `**`: anything at all. */
+    | { kind: 'all' }
+    /** `**` followed by a slash: nothing, or anything that ends in a slash. */
+    | { kind: 'dirs' };
+
+const STAR: Token = { kind: 'star' };
+const ALL: Token = { kind: 'all' };
+const DIRS: Token = { kind: 'dirs' };
+const ANY: Token = { kind: 'any' };
+
+/** Rules with at least this many wildcards use {@link LinearGlob}. */
+const LINEAR_GLOB_WILDCARDS = 2;
+
+function isWildcard(token: Token): boolean {
+    return token.kind === 'star' || token.kind === 'all' || token.kind === 'dirs';
+}
+
+/** JavaScript's `.` skips line breaks, so these use `[^]`, which matches any character. */
+function tokenSource(token: Token): string {
+    switch (token.kind) {
+        case 'char':
+            return escapeRegex(token.char);
+        case 'class':
+            return token.source;
+        case 'any':
+            return '[^/]';
+        case 'star':
+            return '[^/]*';
+        case 'all':
+            return '[^]*';
+        case 'dirs':
+            return '(?:[^]*/)?';
+    }
+}
+
+const CHAR = 0;
+const CLASS = 1;
+const ANY_CHAR = 2;
+const ANY_RUN = 3;
+const ALL_RUN = 4;
+const DIRS_RUN = 5;
+const OPCODES = {
+    char: CHAR,
+    class: CLASS,
+    any: ANY_CHAR,
+    star: ANY_RUN,
+    all: ALL_RUN,
+    dirs: DIRS_RUN,
+};
+
+/** The same case folding as a regular expression with the `i` flag. */
+function foldCase(c: string): string {
+    const upper = c.toUpperCase();
+    if (upper.length !== 1) return c;
+    return c.charCodeAt(0) >= 128 && upper.charCodeAt(0) < 128 ? c : upper;
+}
+
+/** The longest stretch of plain ASCII characters that a glob must match literally. */
+function longestAsciiRun(tokens: readonly Token[]): string {
+    let longest = '';
+    let run = '';
+    for (const token of tokens) {
+        if (token.kind === 'char' && token.char.charCodeAt(0) < 128) {
+            run += token.char;
+            if (run.length > longest.length) longest = run;
+        } else {
+            run = '';
+        }
+    }
+    return longest;
+}
+
+/**
+ * Matches a parsed glob by tracking every position it could be at, one input
+ * character at a time. Nothing is ever retried, so the time is bounded by the
+ * length of the path times the length of the pattern, whatever the pattern is.
+ */
+export class LinearGlob {
+    readonly dirOnly: boolean;
+    readonly nameOnly: boolean;
+    /**
+     * Text every match must contain, in lower case when ignoring case. Only ASCII
+     * is used: a regular expression's `i` flag never folds other characters into
+     * ASCII, so lower-casing a path cannot hide or invent an occurrence of it.
+     */
+    readonly required: string;
+    readonly #ops: Uint8Array;
+    readonly #chars: string[];
+    readonly #classes: Array<RegExp | null>;
+    readonly #accept: number;
+    readonly #ignoreCase: boolean;
+    #current: Int32Array;
+    #next: Int32Array;
+    #nextCount = 0;
+    /** The step at which each position was last added, so it is added only once per step. */
+    readonly #added: Float64Array;
+    /** The same for following a wildcard to the position after it. */
+    readonly #skipped: Float64Array;
+    #step = 0;
+
+    constructor(rule: Pick<Rule, 'dirOnly' | 'nameOnly' | 'tokens'>, ignoreCase: boolean) {
+        const { tokens } = rule;
+        this.dirOnly = rule.dirOnly;
+        this.nameOnly = rule.nameOnly;
+        this.#ignoreCase = ignoreCase;
+        const required = longestAsciiRun(tokens);
+        this.required = ignoreCase ? required.toLowerCase() : required;
+        const size = tokens.length + 1;
+        this.#accept = tokens.length;
+        this.#ops = Uint8Array.from(tokens, (token) => OPCODES[token.kind]);
+        this.#chars = tokens.map((token) => {
+            if (token.kind !== 'char') return '';
+            return ignoreCase ? foldCase(token.char) : token.char;
+        });
+        this.#classes = tokens.map((token) =>
+            token.kind === 'class' ? new RegExp(`^${token.source}$`, ignoreCase ? 'i' : '') : null
+        );
+        this.#current = new Int32Array(size);
+        this.#next = new Int32Array(size);
+        this.#added = new Float64Array(size);
+        this.#skipped = new Float64Array(size);
+    }
+
+    matches(text: string): boolean {
+        const ops = this.#ops;
+        const chars = this.#chars;
+        const accept = this.#accept;
+        this.#nextCount = 0;
+        this.#step++;
+        this.#add(0, true);
+        for (let i = 0; i < text.length; i++) {
+            const count = this.#nextCount;
+            if (count === 0) return false;
+            const current = this.#next;
+            this.#next = this.#current;
+            this.#current = current;
+            this.#nextCount = 0;
+            this.#step++;
+            const c = text[i]!;
+            const folded = this.#ignoreCase ? foldCase(c) : c;
+            for (let k = 0; k < count; k++) {
+                const position = current[k]!;
+                if (position === accept) continue;
+                switch (ops[position]!) {
+                    case CHAR:
+                        if (folded === chars[position]) this.#add(position + 1, true);
+                        break;
+                    case CLASS:
+                        if (this.#classes[position]!.test(c)) this.#add(position + 1, true);
+                        break;
+                    case ANY_CHAR:
+                        if (c !== '/') this.#add(position + 1, true);
+                        break;
+                    case ANY_RUN:
+                        if (c !== '/') this.#add(position, true);
+                        break;
+                    case ALL_RUN:
+                        this.#add(position, true);
+                        break;
+                    default:
+                        // Inside "**/", the next step is only reachable right after a slash.
+                        this.#add(position, false);
+                        if (c === '/') this.#add(position + 1, true);
+                }
+            }
+        }
+        return this.#added[accept] === this.#step;
+    }
+
+    #add(position: number, arriving: boolean): void {
+        const step = this.#step;
+        for (let at = position; ; at++) {
+            if (this.#added[at] !== step) {
+                this.#added[at] = step;
+                this.#next[this.#nextCount++] = at;
+            }
+            // A wildcard can match nothing, so arriving at one also arrives at what follows it.
+            if (!arriving || at === this.#accept || this.#ops[at]! < ANY_RUN) return;
+            if (this.#skipped[at] === step) return;
+            this.#skipped[at] = step;
+        }
+    }
 }
 
 interface Rule {
@@ -188,15 +411,40 @@ interface Rule {
     fast: { kind: 'literal' | 'suffix'; value: string } | null;
     /** Regular expression source matching the whole relative path (or the name, when `nameOnly`). */
     source: string;
+    /** The parsed pattern that `source` was generated from. */
+    tokens: Token[];
+    /** How many wildcards can stretch to match a long name. */
+    wildcards: number;
 }
 
 /** No wildcards, classes, or escapes: the pattern is a literal name (or suffix). */
 const LITERAL = /^[^*?[\\]+$/;
 
-/** Turns one gitignore line into a regex fragment; `null` for blanks and comments. */
+/** A line ending; a final CR counts because Git treats the end of a file as a newline. */
+const EOL = /\r?\n|\r$/;
+
+/** Removes unescaped trailing spaces. Tabs are significant, as they are in Git. */
+function trimTrailingSpaces(line: string): string {
+    let end = line.length;
+    let spaces = -1;
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === ' ') {
+            if (spaces === -1) spaces = i;
+        } else {
+            if (line[i] === '\\') i++;
+            spaces = -1;
+        }
+    }
+    if (spaces !== -1) end = spaces;
+    return line.slice(0, end);
+}
+
+/**
+ * Turns one gitignore line into a regex fragment. Returns `null` for blanks,
+ * comments, and malformed patterns, which Git treats as never matching.
+ */
 export function parseRule(line: string): Rule | null {
-    // Trailing spaces are ignored unless escaped with a backslash.
-    let pattern = line.replace(/(?<!\\)\s+$/, '');
+    let pattern = trimTrailingSpaces(line);
     if (pattern === '' || pattern.startsWith('#')) return null;
 
     let negated = false;
@@ -208,10 +456,11 @@ export function parseRule(line: string): Rule | null {
     }
     if (pattern === '') return null;
 
+    // Git removes exactly one slash at either end; any others must match literally.
     let dirOnly = false;
-    if (pattern.endsWith('/') && !pattern.endsWith('\\/')) {
+    if (pattern.endsWith('/')) {
         dirOnly = true;
-        pattern = pattern.replace(/\/+$/, '');
+        pattern = pattern.slice(0, -1);
         if (pattern === '') return null;
     }
 
@@ -219,7 +468,7 @@ export function parseRule(line: string): Rule | null {
     let anchored = false;
     if (pattern.startsWith('/')) {
         anchored = true;
-        pattern = pattern.replace(/^\/+/, '');
+        pattern = pattern.slice(1);
     } else if (pattern.includes('/')) {
         anchored = true;
     }
@@ -231,11 +480,13 @@ export function parseRule(line: string): Rule | null {
     // Nothing left to match after stripping path prefixes.
     if (pattern === '') return null;
 
-    const body = globToRegex(pattern);
+    const body = parseGlob(pattern);
     if (body === null) return null;
     // Without a slash, "*" and "?" cannot cross segments, so only the name matters.
     const nameOnly = !anchored && !pattern.includes('/') && !pattern.includes('**');
-    const source = anchored || nameOnly ? body : `(?:.*/)?${body}`;
+    const tokens = anchored || nameOnly ? body : [DIRS, ...body];
+    const source = tokens.map(tokenSource).join('');
+    const wildcards = tokens.filter(isWildcard).length;
     let fast: Rule['fast'] = null;
     if (nameOnly) {
         if (LITERAL.test(pattern)) fast = { kind: 'literal', value: pattern };
@@ -243,21 +494,21 @@ export function parseRule(line: string): Rule | null {
             fast = { kind: 'suffix', value: pattern.slice(1) };
         }
     }
-    return { negated, dirOnly, nameOnly, fast, source };
+    return { negated, dirOnly, nameOnly, fast, source, tokens, wildcards };
 }
 
 /**
- * Translates a gitignore glob (already stripped of anchors and trailing
- * slashes) into regex source. Returns `null` for an unusable pattern.
+ * Parses a gitignore glob (already stripped of anchors and trailing slashes).
+ * Returns `null` for a malformed pattern.
  */
-function globToRegex(glob: string): string | null {
-    let out = '';
+function parseGlob(glob: string): Token[] | null {
+    const out: Token[] = [];
     const n = glob.length;
     for (let i = 0; i < n; i++) {
         const c = glob[i]!;
         if (c === '\\') {
-            if (i + 1 < n) out += escapeRegex(glob[++i]!);
-            else out += '\\\\';
+            if (i + 1 >= n) return null; // A trailing backslash is an invalid pattern.
+            out.push({ kind: 'char', char: glob[++i]! });
         } else if (c === '*') {
             if (glob[i + 1] === '*') {
                 // Collapse any run of stars.
@@ -267,75 +518,88 @@ function globToRegex(glob: string): string | null {
                 const atEnd = j === n;
                 if (atStart && atEnd) {
                     // "a/**" matches everything inside a.
-                    out += '.*';
+                    out.push(ALL);
                 } else if (atStart && glob[j] === '/') {
                     // "a/**/b" matches zero or more directories.
-                    out += '(?:.*/)?';
+                    out.push(DIRS);
                     j++;
                 } else {
                     // Other consecutive stars are ordinary stars.
-                    out += '[^/]*';
+                    out.push(STAR);
                 }
                 i = j - 1;
             } else {
-                out += '[^/]*';
+                out.push(STAR);
             }
         } else if (c === '?') {
-            out += '[^/]';
+            out.push(ANY);
         } else if (c === '[') {
             const cls = parseClass(glob, i);
-            if (cls === null) {
-                out += '\\[';
-            } else {
-                out += cls.source;
-                i = cls.end;
-            }
-        } else if (c === '/') {
-            out += '/';
+            if (cls === null) return null;
+            out.push({ kind: 'class', source: cls.source });
+            i = cls.end;
         } else {
-            out += escapeRegex(c);
+            out.push({ kind: 'char', char: c });
         }
     }
     return out;
 }
 
-/** Parses a bracket expression starting at `start`; `null` when it is not closed. */
+/**
+ * Parses a bracket expression starting at `start`, following Git's wildmatch.
+ * Returns `null` when it is malformed (not closed, or an unknown POSIX class).
+ */
 function parseClass(glob: string, start: number): { source: string; end: number } | null {
     let i = start + 1;
-    let negate = false;
-    if (glob[i] === '!' || glob[i] === '^') {
-        negate = true;
-        i++;
-    }
+    const negate = glob[i] === '!' || glob[i] === '^';
+    if (negate) i++;
     let body = '';
-    let first = true;
-    for (; i < glob.length; i++) {
-        const c = glob[i]!;
-        if (c === ']' && !first) {
-            // Git never lets a class match a slash.
-            const source = negate ? `(?!/)[^${body}]` : `[${body}]`;
-            return { source, end: i };
-        }
-        first = false;
-        if (c === '\\' && i + 1 < glob.length) {
-            body += `\\${glob[++i]!}`;
+    // The character a following `-` would start a range from.
+    let rangeStart: string | undefined;
+    for (let first = true; ; i++, first = false) {
+        const c = glob[i];
+        if (c === undefined) return null;
+        if (c === ']' && !first) break;
+        if (c === '\\') {
+            const escaped = glob[++i];
+            if (escaped === undefined) return null;
+            body += escapeInClass(escaped);
+            rangeStart = escaped;
+        } else if (c === '-' && rangeStart !== undefined && !isClassEnd(glob[i + 1])) {
+            let end = glob[++i]!;
+            if (end === '\\') {
+                const escaped = glob[++i];
+                if (escaped === undefined) return null;
+                end = escaped;
+            }
+            // A reversed range matches nothing. Git accepts it; a regular expression would throw.
+            if (rangeStart <= end) body += `${escapeInClass(rangeStart)}-${escapeInClass(end)}`;
+            rangeStart = undefined;
         } else if (c === '[' && glob[i + 1] === ':') {
-            const close = glob.indexOf(':]', i + 2);
+            const close = glob.indexOf(']', i + 2);
             if (close === -1) return null;
-            const name = glob.slice(i + 2, close);
-            const posix = POSIX_CLASSES[name];
-            if (posix === undefined) return null;
-            body += posix;
-            i = close + 1;
-        } else if (c === '/') {
-            return null;
-        } else if (c === '-' || c === ']' || c === '^') {
-            body += c === ']' ? '\\]' : c === '^' ? '\\^' : '-';
+            if (glob[close - 1] === ':' && close - 1 >= i + 2) {
+                const posix = POSIX_CLASSES[glob.slice(i + 2, close - 1)];
+                if (posix === undefined) return null;
+                body += posix;
+                i = close;
+                rangeStart = undefined;
+            } else {
+                // No closing ":]", so the bracket is an ordinary member.
+                body += escapeInClass(c);
+                rangeStart = c;
+            }
         } else {
             body += escapeInClass(c);
+            rangeStart = c;
         }
     }
-    return null;
+    // Git never lets a class match a slash, even one it lists.
+    return { source: `(?!/)[${negate ? '^' : ''}${body}]`, end: i };
+}
+
+function isClassEnd(c: string | undefined): boolean {
+    return c === undefined || c === ']';
 }
 
 const POSIX_CLASSES: Record<string, string> = {
@@ -358,5 +622,5 @@ function escapeRegex(c: string): string {
 }
 
 function escapeInClass(c: string): string {
-    return c === '\\' ? '\\\\' : c;
+    return /[\\\]^[-]/.test(c) ? `\\${c}` : c;
 }

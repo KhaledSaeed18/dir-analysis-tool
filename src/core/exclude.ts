@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { GitignoreMatcher } from './gitignore.ts';
 
@@ -140,7 +140,8 @@ export class Excluder {
             const prefix = relative(base, root).split(sep).join('/');
             scopes.push({ matcher, prefix: prefix ? `${prefix}/` : '', strip: 0 });
         };
-        await add(join(repoRoot, '.git', 'info', 'exclude'), repoRoot);
+        const infoExclude = await findInfoExclude(repoRoot);
+        if (infoExclude !== null) await add(infoExclude, repoRoot);
         for (const dir of outermostFirst) await add(join(dir, '.gitignore'), dir);
         return scopes;
     }
@@ -148,6 +149,22 @@ export class Excluder {
     #compile(source: string | readonly string[]): GitignoreMatcher {
         return GitignoreMatcher.compile(source, { ignoreCase: this.#ignoreCase });
     }
+}
+
+/**
+ * Locates `info/exclude`. In a linked worktree or a submodule `.git` is a file
+ * naming the real Git directory, and a worktree shares its main repository's
+ * exclude file through `commondir`.
+ */
+async function findInfoExclude(repoRoot: string): Promise<string | null> {
+    const dotGit = join(repoRoot, '.git');
+    const pointer = await readFile(dotGit, 'utf8').catch(() => null);
+    if (pointer === null) return join(dotGit, 'info', 'exclude');
+    const gitDir = /^gitdir:\s*(.+?)\s*$/m.exec(pointer)?.[1];
+    if (gitDir === undefined) return null;
+    const dir = resolve(repoRoot, gitDir);
+    const commonDir = await readFile(join(dir, 'commondir'), 'utf8').catch(() => null);
+    return join(commonDir === null ? dir : resolve(dir, commonDir.trim()), 'info', 'exclude');
 }
 
 function isGitIgnored(chain: IgnoreChain, relPath: string, isDirectory: boolean): boolean {
