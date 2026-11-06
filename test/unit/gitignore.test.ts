@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GitignoreMatcher, parseRule } from '../../src/core/gitignore.ts';
+import { GitignoreMatcher, LinearGlob, parseRule } from '../../src/core/gitignore.ts';
 
 function matcher(lines: string | readonly string[], ignoreCase = false): GitignoreMatcher {
     return GitignoreMatcher.compile(lines, { ignoreCase });
@@ -14,6 +14,172 @@ function ignored(m: GitignoreMatcher, path: string, isDirectory = false): boolea
     }
     return false;
 }
+
+describe('rules with several wildcards', () => {
+    /** Generous for slow CI machines; a backtracking regex needs far longer than this. */
+    const LIMIT_MS = 2000;
+
+    function elapsed(run: () => void): number {
+        const started = performance.now();
+        run();
+        return performance.now() - started;
+    }
+
+    it.each([
+        ['a*'.repeat(6) + 'b', 'a'.repeat(200)],
+        ['a*'.repeat(40) + 'b', 'a'.repeat(4000)],
+        ['*a'.repeat(30) + '*b', 'a'.repeat(4000)],
+        ['**/a*/**/a*/**/a*/b', `${'a/'.repeat(1000)}c`],
+        ['x/**/**/**/**/y', `x/${'a/'.repeat(1000)}z`],
+        ['a?*?*?*?*?*?*b', 'a'.repeat(1000)],
+        ['[a]*[a]*[a]*[a]*[a]*[a]*b', 'a'.repeat(1000)],
+    ])('stay fast on %s', (pattern, path) => {
+        const exact = GitignoreMatcher.compile(pattern);
+        const sensitive = elapsed(() => exact.test(path, false));
+        const folded = GitignoreMatcher.compile(pattern, { ignoreCase: true });
+        expect(sensitive + elapsed(() => folded.test(path, false))).toBeLessThan(LIMIT_MS);
+    });
+
+    it('stay fast with many such rules', () => {
+        const rules = Array.from({ length: 500 }, (_, i) => `a*a*a*a*a*a*${i}`);
+        const compiled = GitignoreMatcher.compile(rules);
+        const path = 'a'.repeat(300);
+        expect(elapsed(() => compiled.test(path, false))).toBeLessThan(LIMIT_MS);
+    });
+
+    it('match by name or by path, and respect directory-only rules', () => {
+        const m = matcher(['*.*', 'a*b*/', 'src/**/*.map', '**/gen/*.js']);
+        expect(m.test('x/y/file.txt', false)).toBe(true);
+        expect(m.test('noext', false)).toBeUndefined();
+        expect(m.test('x/axbx', true)).toBe(true);
+        expect(m.test('x/axbx', false)).toBeUndefined();
+        expect(m.test('src/a/b/c.map', false)).toBe(true);
+        expect(m.test('lib/src/c.map', false)).toBe(true); // via *.*
+        expect(m.test('x/y/gen/a.js', false)).toBe(true);
+    });
+
+    it('keep later rules winning across both kinds of matching', () => {
+        const m = matcher(['a*b*c', '!axbxc', '*.log', '!x*y*.log', 'xkeyz.log']);
+        expect(m.test('aqbqc', false)).toBe(true);
+        expect(m.test('axbxc', false)).toBe(false);
+        expect(m.test('other.log', false)).toBe(true);
+        expect(m.test('x1y2.log', false)).toBe(false);
+        expect(m.test('xkeyz.log', false)).toBe(true);
+    });
+
+    it('use the required text only to skip work, never to change a result', () => {
+        const fold = matcher(['*.PART*', '**/CACHE/*.tmp'], true);
+        expect(fold.test('a.part1', false)).toBe(true);
+        expect(fold.test('A.Part1', false)).toBe(true);
+        expect(fold.test('a/cache/b.TMP', false)).toBe(true);
+        expect(fold.test('a.pert1', false)).toBeUndefined();
+        const exact = matcher(['*.part*']);
+        expect(exact.test('a.part1', false)).toBe(true);
+        expect(exact.test('a.PART1', false)).toBeUndefined();
+    });
+
+    it('fold case the way a regular expression does', () => {
+        const m = matcher(['A*B*C', '[x-z]*[Q]*'], true);
+        expect(m.test('a1b2c', false)).toBe(true);
+        expect(m.test('Y1q2', false)).toBe(true);
+        expect(matcher(['A*B*C']).test('a1b2c', false)).toBeUndefined();
+    });
+
+    it('agree with the regular expression generated from the same rule', () => {
+        let seed = 0x2b7e15;
+        const random = (n: number): number => {
+            seed ^= seed << 13;
+            seed ^= seed >>> 17;
+            seed ^= seed << 5;
+            return (seed >>> 0) % n;
+        };
+        const atoms = [
+            'a',
+            'b',
+            'A',
+            '.',
+            '/',
+            '*',
+            '*',
+            '**',
+            '**/',
+            '/**',
+            '?',
+            '[ab]',
+            '[!a]',
+            '[z-a]',
+            '\\*',
+            'é',
+            '\n',
+            'k',
+            's',
+            String.fromCharCode(0xb5),
+        ];
+        const letters = [
+            'a',
+            'b',
+            'A',
+            'B',
+            '.',
+            '/',
+            '/',
+            'é',
+            'É',
+            '\n',
+            '*',
+            'k',
+            'K',
+            String.fromCharCode(0x212a),
+            's',
+            'S',
+            String.fromCharCode(0x17f),
+            String.fromCharCode(0xb5),
+            String.fromCharCode(0x3bc),
+        ];
+        let compared = 0;
+        for (let i = 0; i < 4000; i++) {
+            const pattern = Array.from(
+                { length: 1 + random(7) },
+                () => atoms[random(atoms.length)]
+            ).join('');
+            const rule = parseRule(pattern);
+            if (rule === null || rule.negated) continue;
+            for (const ignoreCase of [false, true]) {
+                const glob = new LinearGlob(rule, ignoreCase);
+                const whole = GitignoreMatcher.compile([pattern], { ignoreCase });
+                const regex = new RegExp(`^(?:${rule.source})$`, ignoreCase ? 'i' : '');
+                for (let j = 0; j < 20; j++) {
+                    const text = Array.from(
+                        { length: random(9) },
+                        () => letters[random(letters.length)]
+                    ).join('');
+                    expect(`${pattern} ${text} ${glob.matches(text)}`).toBe(
+                        `${pattern} ${text} ${regex.test(text)}`
+                    );
+                    // Rules with fewer wildcards never reach the pre-check; compare them with themselves.
+                    const subject = rule.nameOnly ? text.slice(text.lastIndexOf('/') + 1) : text;
+                    const actual = whole.test(text, true) === true;
+                    const expected = rule.wildcards >= 2 ? regex.test(subject) : actual;
+                    expect(`${pattern} ${text} ${actual}`).toBe(`${pattern} ${text} ${expected}`);
+                    compared++;
+                }
+            }
+        }
+        expect(compared).toBeGreaterThan(50000);
+    });
+});
+
+describe('line breaks in names', () => {
+    it('are matched by every kind of wildcard', () => {
+        const m = matcher(['build/**', 'x/**/y', 'deep/**/*.log', '**/d/**', 'n*e']);
+        expect(m.test('build/a\nb', false)).toBe(true);
+        expect(m.test('build/a\rb', false)).toBe(true);
+        expect(m.test('x/a\nb/y', false)).toBe(true);
+        expect(m.test('deep/a\nb/c\nd.log', false)).toBe(true);
+        expect(m.test('q\nr/d/s\nt', false)).toBe(true);
+        expect(m.test('n\ne', false)).toBe(true);
+    });
+});
 
 describe('GitignoreMatcher', () => {
     it('matches bare wildcard rules and preserves negation and directory-only behavior', () => {
@@ -43,10 +209,27 @@ describe('GitignoreMatcher', () => {
     });
 
     it('ignores trailing spaces unless escaped', () => {
-        const m = matcher(['name   ', 'trail\\ ']);
+        const m = matcher(['name   ', 'trail\\ ', 'slash\\\\ ']);
         expect(m.test('name', false)).toBe(true);
         expect(m.test('trail ', false)).toBe(true);
         expect(m.test('trail', false)).toBeUndefined();
+        expect(m.test('slash\\', false)).toBe(true); // the backslash is escaped, not the space
+    });
+
+    it('keeps trailing tabs, which are part of the pattern', () => {
+        const m = matcher(['tabbed\t']);
+        expect(m.test('tabbed\t', false)).toBe(true);
+        expect(m.test('tabbed', false)).toBeUndefined();
+    });
+
+    it('skips a byte order mark at the start of a file', () => {
+        const m = matcher('\uFEFFfirst.txt\nsecond.txt\n');
+        expect(m.test('first.txt', false)).toBe(true);
+        expect(m.test('second.txt', false)).toBe(true);
+    });
+
+    it('strips a carriage return from the last line of a file', () => {
+        expect(matcher('last.txt\r').test('last.txt', false)).toBe(true);
     });
 
     it('matches names at any depth when the pattern has no slash', () => {
@@ -79,13 +262,17 @@ describe('GitignoreMatcher', () => {
     });
 
     it('applies directory-only rules to directories (and everything inside)', () => {
-        const m = matcher(['build/', 'tmp//']);
+        const m = matcher(['build/']);
         expect(m.test('build', false)).toBeUndefined();
         expect(m.test('build', true)).toBe(true);
         expect(ignored(m, 'build/out.js')).toBe(true);
-        expect(m.test('tmp', true)).toBe(true);
         expect(matcher(['/']).hasRules).toBe(false);
         expect(matcher(['!']).hasRules).toBe(false);
+    });
+
+    it('removes only one slash from either end of a pattern', () => {
+        expect(matcher(['tmp//']).test('tmp', true)).toBeUndefined();
+        expect(matcher(['//tmp']).test('tmp', false)).toBeUndefined();
     });
 
     it('lets later rules override earlier ones, including negation', () => {
@@ -137,22 +324,65 @@ describe('GitignoreMatcher', () => {
         expect(m.test('-z', false)).toBeUndefined();
     });
 
-    it('treats unusable brackets literally and ignores unknown POSIX classes', () => {
-        const m = matcher(['[abc', 'a[/]b', '[[:nope:]]']);
-        expect(m.test('[abc', false)).toBe(true);
-        expect(m.test('a', false)).toBeUndefined();
-        expect(m.test('a[/]b', false)).toBe(true); // literal brackets around the slash
-        expect(m.test('[[:nope:]]', false)).toBeUndefined();
+    it('treats malformed patterns as never matching', () => {
+        for (const pattern of [
+            '[abc',
+            '[',
+            '[]',
+            '[!]',
+            '[a\\]',
+            '[[:nope:]]',
+            '[[:alpha:]',
+            'a\\',
+        ]) {
+            const m = matcher(pattern);
+            expect(m.hasRules).toBe(false);
+            expect(m.test(pattern, false)).toBeUndefined();
+        }
+    });
+
+    it('survives reversed ranges, which match only their first character', () => {
+        // A reversed range used to reach the regular expression and throw.
+        const m = matcher(['file[z-a].txt', 'other[!z-a]']);
+        expect(m.test('filez.txt', false)).toBe(true);
+        expect(m.test('filea.txt', false)).toBeUndefined();
+        expect(m.test('filem.txt', false)).toBeUndefined();
+        expect(m.test('otherm', false)).toBe(true);
+        expect(m.test('otherz', false)).toBeUndefined();
+    });
+
+    it('never lets a class match a slash, even one it lists', () => {
+        const m = matcher(['[a/b]c', 'x[/]y', 'n[+-9]m']);
+        expect(m.test('ac', false)).toBe(true);
+        expect(m.test('bc', false)).toBe(true);
+        expect(m.test('/c', false)).toBeUndefined();
+        expect(m.test('x/y', false)).toBeUndefined();
+        expect(m.test('n5m', false)).toBe(true);
+        expect(m.test('n/m', false)).toBeUndefined(); // "/" falls inside the range
+    });
+
+    it('treats a bracket without a closing ":]" as an ordinary class member', () => {
+        const m = matcher('[[:x]');
+        expect(m.test('[', false)).toBe(true);
+        expect(m.test('x', false)).toBe(true);
+        expect(m.test('y', false)).toBeUndefined();
+    });
+
+    it('honors escapes inside classes and range endpoints', () => {
+        const m = matcher(['[\\]]', 'r[a-\\c]', 'm[\\a-c]', 'e[\\-]']);
+        expect(m.test(']', false)).toBe(true);
+        expect(m.test('rb', false)).toBe(true);
+        expect(m.test('mb', false)).toBe(true);
+        expect(m.test('e-', false)).toBe(true);
     });
 
     it('honors backslash escapes', () => {
-        const m = matcher(['esc\\ aped', 'star\\*', 'q\\?', 'back\\\\slash', 'end\\']);
+        const m = matcher(['esc\\ aped', 'star\\*', 'q\\?', 'back\\\\slash']);
         expect(m.test('esc aped', false)).toBe(true);
         expect(m.test('star*', false)).toBe(true);
         expect(m.test('starx', false)).toBeUndefined();
         expect(m.test('q?', false)).toBe(true);
         expect(m.test('back\\slash', false)).toBe(true);
-        expect(m.test('end\\', false)).toBe(true);
     });
 
     it('matches case-insensitively when asked', () => {

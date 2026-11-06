@@ -13,7 +13,7 @@ import {
     resolveScanSettings,
 } from '../options.ts';
 import { ProgressLine } from '../progress.ts';
-import { formatCount } from '../../format/text.ts';
+import { escapeControl, formatCount } from '../../format/text.ts';
 import { listLimit } from './analyze.ts';
 
 const EXAMPLES = `
@@ -87,7 +87,10 @@ export function registerCompare(program: Command, ctx: Context): void {
         });
         if (display.output) {
             const file = await ctx.writeFile(display.output, text);
-            ctx.info(`${ctx.err.green('✔')} Comparison written to ${file}`, display.quiet);
+            ctx.info(
+                `${ctx.err.green('✔')} Comparison written to ${escapeControl(file)}`,
+                display.quiet
+            );
         } else {
             await ctx.stdout(text.endsWith('\n') ? text : `${text}\n`);
         }

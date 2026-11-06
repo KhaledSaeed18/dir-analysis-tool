@@ -2,6 +2,7 @@ import { relative } from 'node:path';
 import type { Command } from '../command.ts';
 import { analyze, type AnalyzeOptions } from '../../core/analyze.ts';
 import { formatBudgetActual } from '../../core/budgets.ts';
+import { escapeControl } from '../../format/text.ts';
 import { renderAnalysisCsv } from '../../reporters/csv.ts';
 import { renderAnalysisHtml } from '../../reporters/html.ts';
 import { renderAnalysisAs } from '../../reporters/index.ts';
@@ -150,7 +151,7 @@ export function reportBudgets(
 
 function displayPath(ctx: Context, file: string): string {
     const rel = relative(ctx.io.cwd, file);
-    return rel && !rel.startsWith('..') ? rel : file;
+    return escapeControl(rel && !rel.startsWith('..') ? rel : file);
 }
 
 /** Items printed per list: the --top value, or 10 when the top lists are turned off. */

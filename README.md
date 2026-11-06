@@ -439,7 +439,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
 ## How it works
 
 - **Scanning.** Directories are read with `readdir({ withFileTypes })`, so they never need a `stat`, and each regular file is `lstat`ed once. All filesystem calls go through one concurrency limiter (32 operations in flight by default), so no tree, however wide, can exhaust file handles. Work is scheduled depth-first to keep the queue small.
-- **Patterns.** Exclude patterns and `.gitignore` files are compiled by a built-in matcher: consecutive rules become a few regular expressions, and plain names and `*.ext` rules are resolved with hash lookups, reducing pattern-matching overhead without caching results per path.
+- **Patterns.** Exclude patterns and `.gitignore` files are compiled by a built-in matcher: consecutive rules become a few regular expressions, and plain names and `*.ext` rules are resolved with hash lookups, reducing pattern-matching overhead without caching results per path. Rules with several wildcards use a matcher whose time grows linearly with the path length, so an unusual `.gitignore` cannot stall a scan.
 - **Memory.** Totals, type and extension statistics, folder sizes, and the top-N lists are computed while scanning; the lists use bounded heaps. Reports you opt into keep only what they match. Duplicate detection keeps one small record per file that shares its size with another.
 - **Largest folders.** Folders are ranked by the total size below them. A folder whose size comes almost entirely (95% or more) from one subfolder is folded into that subfolder, so the list points to where the data actually lives instead of repeating every parent.
 - **Duplicates,** in stages so most files are never read in full:

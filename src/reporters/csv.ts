@@ -1,14 +1,16 @@
+import { escapeControlKeepingWhitespace } from '../format/text.ts';
 import { CATEGORIES, type AnalysisResult, type ComparisonResult } from '../types.ts';
 
 /**
  * Quotes a CSV cell when needed (RFC 4180) and neutralizes spreadsheet
  * formula injection: text starting with `=`, `+`, `-`, `@`, tab, or carriage
- * return is prefixed with an apostrophe so it is never evaluated.
+ * return is prefixed with an apostrophe so it is never evaluated. Other control
+ * characters are escaped because CSV is often printed; JSON keeps exact names.
  */
 export function csvCell(value: string | number | null | undefined): string {
     if (value === null || value === undefined) return '';
     if (typeof value === 'number') return String(value);
-    let text = value;
+    let text = escapeControlKeepingWhitespace(value);
     if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
     return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

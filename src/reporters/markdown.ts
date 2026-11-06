@@ -1,6 +1,6 @@
 import { formatBudgetActual } from '../core/budgets.ts';
 import { formatBytes, unitsOf, type ByteUnits } from '../format/bytes.ts';
-import { formatCount, formatPercent, plural } from '../format/text.ts';
+import { escapeControl, formatCount, formatPercent, plural } from '../format/text.ts';
 import {
     CATEGORIES,
     type AnalysisResult,
@@ -14,11 +14,16 @@ export interface MarkdownOptions {
     limit?: number;
 }
 
-/** Inline code that is safe inside a GitHub table cell. */
+/**
+ * Inline code that is safe inside a GitHub table cell. The fence is longer than
+ * any run of backticks in the text, so a file name cannot close it early and
+ * have the rest of its name rendered as Markdown.
+ */
 export function mdCode(text: string): string {
-    const fence = text.includes('`') ? '``' : '`';
-    const padded = fence === '``' ? ` ${text} ` : text;
-    return `${fence}${padded.replaceAll('|', '\\|')}${fence}`;
+    const safe = escapeControl(text).replaceAll('|', '\\|');
+    const longestRun = Math.max(0, ...(safe.match(/`+/g) ?? []).map((run) => run.length));
+    const fence = '`'.repeat(longestRun + 1);
+    return longestRun > 0 ? `${fence} ${safe} ${fence}` : `${fence}${safe}${fence}`;
 }
 
 function table(header: string[], rows: string[][], align?: Array<'l' | 'r'>): string[] {

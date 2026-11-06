@@ -1,7 +1,59 @@
 import { describe, expect, it } from 'vitest';
 import { formatBytes, parseSize } from '../../src/format/bytes.ts';
 import { createStyle, stripAnsi, supportsColor } from '../../src/format/style.ts';
-import { bar, formatPercent, plural, truncateMiddle, visibleWidth } from '../../src/format/text.ts';
+import {
+    bar,
+    escapeControl,
+    escapeControlInLines,
+    escapeControlKeepingWhitespace,
+    fitPath,
+    formatPercent,
+    plural,
+    stringifyJson,
+    truncateMiddle,
+    visibleWidth,
+} from '../../src/format/text.ts';
+
+describe('escapeControl', () => {
+    it('leaves ordinary names untouched, including Unicode and backslashes', () => {
+        for (const name of ['src/app.ts', 'C:\\Users\\me', 'ملف/文件 é.txt', 'emoji 😀.png']) {
+            expect(escapeControl(name)).toBe(name);
+        }
+    });
+
+    it('makes every kind of control character visible', () => {
+        expect(escapeControl('a\u001b[31mb')).toBe('a\\x1b[31mb');
+        expect(escapeControl('a\nb\rc\td')).toBe('a\\nb\\rc\\td');
+        expect(escapeControl('\u0000\u0007\u007f')).toBe('\\x00\\x07\\x7f');
+        expect(escapeControl('c1\u009b31m')).toBe('c1\\x9b31m');
+        expect(escapeControl('line\u2028sep')).toBe('line\\u2028sep');
+        expect(escapeControl('rtl\u202egpj.exe')).toBe('rtl\\u202egpj.exe');
+        expect(escapeControl('iso\u2066late')).toBe('iso\\u2066late');
+    });
+
+    it('can keep the whitespace a quoted CSV cell carries', () => {
+        expect(escapeControlKeepingWhitespace('a\tb\r\nc\u001bd')).toBe('a\tb\r\nc\\x1bd');
+    });
+
+    it('can keep the line breaks of a multi-line message', () => {
+        expect(escapeControlInLines('one\u001b\n  - two\r')).toBe('one\\x1b\n  - two\\r');
+    });
+
+    it('escapes before truncating, so a name fits and no raw character survives', () => {
+        const fitted = fitPath(`${'a'.repeat(30)}\u001b${'b'.repeat(30)}`, 20);
+        expect(fitted).toHaveLength(20);
+        expect(fitted).not.toContain('\u001b');
+    });
+
+    it('writes terminal-sensitive JSON as escapes that parse back exactly', () => {
+        const value = { path: 'a\u001b\u007f\u009b\u2028\u202eb é', n: 1 };
+        const text = stringifyJson(value, 2);
+        expect(text).toContain('\\u009b');
+        expect(text).toContain('\\u202e');
+        expect(escapeControlInLines(text)).toBe(text);
+        expect(JSON.parse(text)).toEqual(value);
+    });
+});
 import {
     formatAge,
     formatElapsed,
