@@ -538,6 +538,8 @@ describe('explainPath: awkward paths (fixtures 29, 30, 32)', () => {
         const outside = await cli(['explain', '../elsewhere', '--root', 'in'], { cwd: root });
         expect(outside.code).toBe(1);
         expect(outside.stderr).toContain('outside the root');
+        // The error names the path as typed, not its absolute form.
+        expect(outside.stderr).toMatch(/^error \.\.\/elsewhere is outside the root /);
         const absolute = await cli(['explain', '/', '--root', root], { cwd: root });
         expect(absolute.code).toBe(1);
     });
@@ -590,6 +592,12 @@ describe('explainSkips (fixture 31 and totals)', () => {
             },
         ]);
         expect(renderSkipsExplanation(result)).toContain('… and 18 more');
+        // --limit 0 asks for counts only: no "and N more" line under each group.
+        const counts = await skips(root, { exclude: ['*.log'], limit: 0 });
+        expect(counts.groups[0]).toMatchObject({ count: 20, entries: [], truncated: true });
+        const text = renderSkipsExplanation(counts);
+        expect(text).toContain('*.log');
+        expect(text).not.toContain('more');
         await expect(explainSkips(root, { limit: 1001 })).rejects.toThrow(/limit/);
         const tooMany = await cli(['explain', '--limit', '5000'], { cwd: root });
         expect(tooMany.code).toBe(1);

@@ -208,7 +208,8 @@ export function renderSkipsExplanation(
                 `  ${padEndVisible(labels[i]!, labelWidth)}  ${s.bold(formatCount(group.count).padStart(countWidth))}`
             );
             for (const entry of group.entries) lines.push(`      ${fitPath(entry, width - 6)}`);
-            if (group.truncated) {
+            // With --limit 0 only counts were asked for, so there is nothing to apologize for.
+            if (group.truncated && result.limit > 0) {
                 const rest = group.count - group.entries.length;
                 lines.push(
                     s.dim(

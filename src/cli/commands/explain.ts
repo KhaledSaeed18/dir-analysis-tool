@@ -1,5 +1,11 @@
 import { InvalidArgumentError, Option, type Command } from '../command.ts';
-import { explainPath, explainSkips, MAX_EXPLAIN_LIMIT } from '../../core/explain.ts';
+import {
+    explainPath,
+    explainSkips,
+    isOutside,
+    MAX_EXPLAIN_LIMIT,
+    outsideRootError,
+} from '../../core/explain.ts';
 import { renderPathExplanation, renderSkipsExplanation } from '../../reporters/explain.ts';
 import { stringifyJson } from '../../format/text.ts';
 import type { Context } from '../context.ts';
@@ -83,7 +89,10 @@ export function registerExplain(program: Command, ctx: Context): void {
         const width = terminalWidth(ctx.io);
 
         if (path !== undefined) {
-            const result = await explainPath(root, ctx.resolvePath(path), {
+            const target = ctx.resolvePath(path);
+            // Checked here too, so the error names the path as typed, not its absolute form.
+            if (isOutside(root, target)) throw outsideRootError(path, root);
+            const result = await explainPath(root, target, {
                 ...settings,
                 signal: ctx.io.signal,
             });
