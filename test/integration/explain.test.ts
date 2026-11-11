@@ -592,6 +592,12 @@ describe('explainSkips (fixture 31 and totals)', () => {
             },
         ]);
         expect(renderSkipsExplanation(result)).toContain('… and 18 more');
+        // --limit 0 asks for counts only: no "and N more" line under each group.
+        const counts = await skips(root, { exclude: ['*.log'], limit: 0 });
+        expect(counts.groups[0]).toMatchObject({ count: 20, entries: [], truncated: true });
+        const text = renderSkipsExplanation(counts);
+        expect(text).toContain('*.log');
+        expect(text).not.toContain('more');
         await expect(explainSkips(root, { limit: 1001 })).rejects.toThrow(/limit/);
         const tooMany = await cli(['explain', '--limit', '5000'], { cwd: root });
         expect(tooMany.code).toBe(1);
