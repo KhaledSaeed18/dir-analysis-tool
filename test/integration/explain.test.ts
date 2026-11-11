@@ -538,6 +538,8 @@ describe('explainPath: awkward paths (fixtures 29, 30, 32)', () => {
         const outside = await cli(['explain', '../elsewhere', '--root', 'in'], { cwd: root });
         expect(outside.code).toBe(1);
         expect(outside.stderr).toContain('outside the root');
+        // The error names the path as typed, not its absolute form.
+        expect(outside.stderr).toMatch(/^error \.\.\/elsewhere is outside the root /);
         const absolute = await cli(['explain', '/', '--root', root], { cwd: root });
         expect(absolute.code).toBe(1);
     });

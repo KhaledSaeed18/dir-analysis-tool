@@ -524,6 +524,19 @@ function isSpecial(entry: Dirent): boolean {
     return entry.isBlockDevice() || entry.isCharacterDevice() || entry.isFIFO() || entry.isSocket();
 }
 
+/** Whether an absolute `target` lies outside the absolute directory `root`. */
+export function isOutside(root: string, target: string): boolean {
+    const fromRoot = relative(root, target);
+    return fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot);
+}
+
+/** The error for a path outside the root, naming the path as the caller gave it. */
+export function outsideRootError(path: string, root: string): DatError {
+    return new DatError(`${path} is outside the root ${root}.`, {
+        hint: 'Pass the directory that contains it with --root.',
+    });
+}
+
 // ---------------------------------------------------------------------------
 // explainPath
 // ---------------------------------------------------------------------------
@@ -553,12 +566,8 @@ export async function explainPath(
     const { options, settings: resolved } = await resolveScan(root, settings, Date.now());
     const absRoot = options.root;
     const target = resolve(absRoot, path);
+    if (isOutside(absRoot, target)) throw outsideRootError(path, absRoot);
     const fromRoot = relative(absRoot, target);
-    if (fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
-        throw new DatError(`${path} is outside the root ${absRoot}.`, {
-            hint: 'Pass the directory that contains it with --root.',
-        });
-    }
     const relPath = fromRoot.split(sep).join('/');
     const segments = relPath ? relPath.split('/') : [];
     const excluder = options.excluder;
