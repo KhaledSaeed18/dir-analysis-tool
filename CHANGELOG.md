@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.3.0...v3.3.1) (2026-11-11)
+
+### Bug Fixes
+
+* **explain:** name the path as typed when it is outside the root ([edc1c79](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/edc1c793c11386da489e258e3077f8e5e1bed5b0))
+* **explain:** stop listing "and N more" lines with --limit 0 ([2727cd6](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/2727cd648d736c619c47c7950e3e4120678fffb2))
+
 ## [3.3.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.2.1...v3.3.0) (2026-11-11)
 
 ### Features
