@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.3.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.2.1...v3.3.0) (2026-11-11)
+
+### Features
+
+* add dat explain to show why a scan skips a path ([42dc67d](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/42dc67d1a9a4a8f337f0b705f203a96db098d330))
+
 ## [3.2.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.2.0...v3.2.1) (2026-11-06)
 
 ### Bug Fixes
