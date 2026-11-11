@@ -42,6 +42,16 @@ dat . -d -n 0 --json | jq '.duplicates.wastedBytes'
 dat dist -b "size<=2MB" -b "largest<500kB" -n 0 --json | jq -c '.budgets[] | {rule, actual, limit, passed}'
 ```
 
+`dat explain --json` has its own shape, versioned by `explainVersion` (see SKILL.md section 6):
+
+```bash
+# Which rules skip the most entries
+dat explain -g --json | jq -r '.groups[] | "\(.count)\t\(.source)\t\(.file // "")\(if .line then ":\(.line)" else "" end)\t\(.rule // "")"'
+
+# Why one path is not counted
+dat explain dist/app.js -g --json | jq '{decision, reason, notes: [.notes[].code]}'
+```
+
 PowerShell can read the same output with `dat . --json | ConvertFrom-Json`. In PowerShell and `cmd.exe`, keep budget rules in double quotes (`-b "size<=2MB"`).
 
 Human-friendly sizes: `--si` makes the pretty report use kB/MB; JSON is always bytes. Convert with `bytes / 1024 ** 2` for MiB or `bytes / 1e6` for MB, and name the unit you used.

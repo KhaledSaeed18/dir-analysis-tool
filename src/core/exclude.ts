@@ -21,10 +21,20 @@ export interface ExcludeOptions {
  * One `.gitignore` file. Paths are tested relative to the directory that holds
  * it: `local = prefix + rootRelativePath.slice(strip)`.
  */
-interface IgnoreScope {
+export interface IgnoreScope {
     readonly matcher: GitignoreMatcher;
     readonly prefix: string;
     readonly strip: number;
+    /** Where the rules came from; read only by `explain`, which needs rule identity. */
+    readonly source: IgnoreSource;
+}
+
+/** The file behind an {@link IgnoreScope}, kept so an explanation can name a rule's line. */
+export interface IgnoreSource {
+    readonly kind: 'gitignore' | 'info-exclude';
+    /** Absolute path of the file. */
+    readonly file: string;
+    readonly content: string;
 }
 
 /** The gitignore files that apply to a directory, outermost first. */
@@ -43,14 +53,27 @@ export class Excluder {
     readonly #defaults: ReadonlySet<string> | null;
     readonly #user: GitignoreMatcher | null;
     readonly #ignoreCase: boolean;
+    /** Trimmed, non-empty user patterns, as they were compiled. */
+    readonly patterns: readonly string[];
 
     constructor(options: ExcludeOptions = {}) {
         this.gitignore = options.gitignore ?? false;
         this.#ignoreCase = options.ignoreCase ?? process.platform !== 'linux';
         this.#defaults = (options.defaultExcludes ?? true) ? new Set(DEFAULT_EXCLUDES) : null;
         const patterns = (options.patterns ?? []).map((p) => p.trim()).filter(Boolean);
+        this.patterns = patterns;
         const user = patterns.length > 0 ? this.#compile(patterns) : null;
         this.#user = user?.hasRules ? user : null;
+    }
+
+    /** Whether rules match case-insensitively. */
+    get ignoreCase(): boolean {
+        return this.#ignoreCase;
+    }
+
+    /** Whether the default directory names are excluded. */
+    get defaultExcludes(): boolean {
+        return this.#defaults !== null;
     }
 
     /** True when at least one rule could exclude something. */
@@ -105,6 +128,7 @@ export class Excluder {
             matcher,
             prefix: '',
             strip: rootRelativeDir ? rootRelativeDir.length + 1 : 0,
+            source: { kind: 'gitignore', file: filePath, content },
         };
     }
 
@@ -114,7 +138,12 @@ export class Excluder {
      * `.git/info/exclude`, so a sub-directory scan matches Git's view.
      */
     async loadAncestorChain(root: string): Promise<IgnoreChain> {
-        if (!this.gitignore) return EMPTY_CHAIN;
+        return (await this.loadAncestors(root)).chain;
+    }
+
+    /** {@link loadAncestorChain}, plus the repository root it found (null outside a repository). */
+    async loadAncestors(root: string): Promise<{ chain: IgnoreChain; repoRoot: string | null }> {
+        if (!this.gitignore) return { chain: EMPTY_CHAIN, repoRoot: null };
         const ancestors: string[] = [];
         let repoRoot: string | null = null;
         let current = root;
@@ -128,22 +157,31 @@ export class Excluder {
             ancestors.push(parent);
             current = parent;
         }
-        if (repoRoot === null) return EMPTY_CHAIN;
+        if (repoRoot === null) return { chain: EMPTY_CHAIN, repoRoot: null };
 
         const scopes: IgnoreScope[] = [];
         const outermostFirst = repoRoot === root ? [] : ancestors.reverse();
-        const add = async (file: string, base: string): Promise<void> => {
+        const add = async (
+            file: string,
+            base: string,
+            kind: IgnoreSource['kind']
+        ): Promise<void> => {
             const content = await readFile(file, 'utf8').catch(() => null);
             if (content === null) return;
             const matcher = this.#compile(content);
             if (!matcher.hasRules) return;
             const prefix = relative(base, root).split(sep).join('/');
-            scopes.push({ matcher, prefix: prefix ? `${prefix}/` : '', strip: 0 });
+            scopes.push({
+                matcher,
+                prefix: prefix ? `${prefix}/` : '',
+                strip: 0,
+                source: { kind, file, content },
+            });
         };
         const infoExclude = await findInfoExclude(repoRoot);
-        if (infoExclude !== null) await add(infoExclude, repoRoot);
-        for (const dir of outermostFirst) await add(join(dir, '.gitignore'), dir);
-        return scopes;
+        if (infoExclude !== null) await add(infoExclude, repoRoot, 'info-exclude');
+        for (const dir of outermostFirst) await add(join(dir, '.gitignore'), dir, 'gitignore');
+        return { chain: scopes, repoRoot };
     }
 
     #compile(source: string | readonly string[]): GitignoreMatcher {

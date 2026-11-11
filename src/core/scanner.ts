@@ -29,7 +29,20 @@ export interface ScanOptions {
     /** Walk directories without examining files (used to set up watchers). */
     directoriesOnly?: boolean | undefined;
     signal?: AbortSignal | undefined;
+    /**
+     * Called for each entry the scan leaves out, after it has been counted.
+     * Used by `explain`; ordinary scans leave it unset, and the hook is only
+     * reached on paths that already skip an entry.
+     */
+    onSkip?: ((event: SkipEvent) => void) | undefined;
 }
+
+/** An entry a scan left out. `dir` is the index of the directory holding it. */
+export type SkipEvent =
+    | { kind: 'excluded'; dir: number; name: string; isDirectory: boolean; chain: IgnoreChain }
+    | { kind: 'filtered'; dir: number; name: string; stats: Stats }
+    | { kind: 'depth'; dir: number; name: string; depth: number }
+    | { kind: 'symlink'; dir: number; name: string };
 
 /**
  * Per-directory record. Directories are stored in discovery order, so every
@@ -206,6 +219,13 @@ export class Scanner {
                 // resolve to are re-checked once their type is known.
                 if (excluder.isExcluded(rel, name, isDirectory, chain)) {
                     this.counters.excluded++;
+                    this.#options.onSkip?.({
+                        kind: 'excluded',
+                        dir: index,
+                        name,
+                        isDirectory,
+                        chain,
+                    });
                     continue;
                 }
             }
@@ -226,7 +246,10 @@ export class Scanner {
 
     #enterDir(parent: number, name: string, fullPath: string, chain: IgnoreChain): void {
         const depth = this.dirs[parent]!.depth + 1;
-        if (depth > this.#options.maxDepth) return;
+        if (depth > this.#options.maxDepth) {
+            this.#options.onSkip?.({ kind: 'depth', dir: parent, name, depth });
+            return;
+        }
         const child = this.#addDir(name, parent, depth);
         this.#limiter.run(() => this.#scanDir(child, fullPath, chain));
     }
@@ -261,6 +284,7 @@ export class Scanner {
                 isSymlink = true;
                 if (!this.#options.followSymlinks) {
                     this.counters.symlinks++;
+                    this.#options.onSkip?.({ kind: 'symlink', dir: dirIndex, name });
                     return;
                 }
                 stats = await stat(fullPath);
@@ -283,6 +307,13 @@ export class Scanner {
                 const rel = this.relativePath(dirIndex, name);
                 if (excluder.isExcluded(rel, name, true, chain)) {
                     this.counters.excluded++;
+                    this.#options.onSkip?.({
+                        kind: 'excluded',
+                        dir: dirIndex,
+                        name,
+                        isDirectory: true,
+                        chain,
+                    });
                     return;
                 }
             }
@@ -319,6 +350,7 @@ export class Scanner {
                 mtime > o.modifiedBefore
             ) {
                 this.counters.filtered++;
+                o.onSkip?.({ kind: 'filtered', dir: dirIndex, name, stats });
                 return;
             }
         }

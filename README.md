@@ -46,7 +46,7 @@ npx dir-analysis-tool
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [What it shows](#what-it-shows)
-- [Commands](#commands): [`analyze`](#dat-analyze), [`compare`](#dat-compare), [`watch`](#dat-watch), [`init`](#dat-init)
+- [Commands](#commands): [`analyze`](#dat-analyze), [`compare`](#dat-compare), [`explain`](#dat-explain), [`watch`](#dat-watch), [`init`](#dat-init)
 - [Sizes, ages, and patterns](#sizes-ages-and-patterns)
 - [Budgets in CI](#budgets-in-ci)
 - [Output formats](#output-formats)
@@ -88,6 +88,7 @@ dat . --stale 2y                      # files untouched for two years
 dat . -t --tree-depth 2               # a size tree, two levels deep
 dat . -g -x                           # honor .gitignore, show extensions
 dat compare dist-old dist-new         # what changed between two builds
+dat explain -g                        # what a scan skips, and which rule skipped it
 dat . -b "size<=200MB" -b "duplicates=0"   # fail CI when a budget is exceeded
 dat . --html report.html              # a self-contained HTML report
 dat . --json | jq '.largestFiles[0]'  # machine-readable output
@@ -150,7 +151,7 @@ A size tree (`dat src -t --tree-depth 2`):
 
 `dat [directory] [options]`. `analyze` is the default command, so `dat .` and `dat analyze .` are the same.
 
-**Scan options** decide which files are counted. They also apply to `compare` and `watch`.
+**Scan options** decide which files are counted. They also apply to `compare`, `explain`, and `watch`.
 
 | Option                                       | Description                                                                                                       |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -232,6 +233,57 @@ A size tree (`dat src -t --tree-depth 2`):
 
 All scan options and shared output options above are accepted too; `--html`, `--csv`, and HTML format are analyze-only. Use `--format csv` to export a comparison.
 
+### `dat explain`
+
+`dat explain [path] [options]` says why a scan counts or skips something, using the same scan options and config file as `analyze`. It never changes what `analyze` reports.
+
+With a path, it explains that one entry without a full scan: it walks down from the root as the scanner does and names the rule or limit that decided, with its file and line.
+
+```text
+$ dat explain build/keep/k.txt -g
+build/keep/k.txt: excluded
+
+  Decided at  build (parent directory)
+  Rule        .gitignore:1  build/
+  Inside it   not measured; dat never enters a directory it skips
+  Note        .gitignore:2 !build/keep/ cannot re-include this: its parent directory build is excluded.
+  Note        Git's global excludes file (core.excludesFile, usually ~/.config/git/ignore) is not read; Git may ignore more than dat does.
+```
+
+Without a path, it runs one scan and groups everything left out by the rule that skipped it: default excludes, each exclude pattern, each `.gitignore` line, size and date filters, `--max-depth`, and symbolic links that were not followed. Counts are complete and equal `summary.excluded` and `summary.filtered` from `analyze`; each group lists its first 20 entries in path order.
+
+```text
+$ dat explain -g
+Skipped: 5 entries excluded
+
+  .gitignore:3  *.log            2
+      a.log
+      b.log
+  default exclude  .git          1
+      .git
+  default exclude  node_modules  1
+      node_modules
+  .gitignore:1  build/           1
+      build
+
+Sizes inside skipped directories are unknown. Measure one with: dat <dir> --all
+```
+
+| Option         | Description                                                                             |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `--root <dir>` | The scan root to evaluate. Default: the current directory. Patterns are relative to it. |
+| `--limit <n>`  | Entries listed per group, from `0` to `1000`. Default `20`. Counts are never truncated. |
+| `-j, --json`   | Print JSON (`explainVersion: 1`), versioned separately from the `analyze` report.       |
+
+All scan options are accepted, as are `--si`, `--color`, `--no-color`, `--no-progress`, and `-q`. The path is relative to the current directory and must be inside the root.
+
+- **Decisions:** `included`, `excluded` (a default, a pattern, `.gitignore`, or `.git/info/exclude`), `filtered` (size or date), `skipped` (beyond `--max-depth`, a symbolic link that is not followed, a socket or device, or an unreadable folder), and `not-found`. The exit code is `0` for all of them, so read `decision`; `1` means an error, such as a path outside the root.
+- **What it cannot know** is said, not guessed. dat never enters an excluded directory, so the size and count below one stay unknown (`descendants` is always `null`). Notes flag a negation that cannot work (`!build/keep/` under an ignored `build/`, `-e '!node_modules'`, or `-e '!x.log'` against a `.gitignore` rule), a scan root that Git ignores, nested repositories, matches that depend on the platform's case-insensitivity, and counts that depend on scan order (hard links, followed symlinks).
+- **Not read:** Git's global excludes file (`core.excludesFile`, usually `~/.config/git/ignore`). Every `-g` explanation inside a repository says so. A `.git` file, which links a worktree or submodule to its repository, is counted as an ordinary file, because default excludes only skip directories.
+- `--max-depth` skips are reported only here (`totals.depthSkipped`); `analyze` does not count them.
+
+`dat explain` analyzes nothing; to analyze a directory that is literally named `explain`, run `dat ./explain`.
+
 ### `dat watch`
 
 `dat watch [directory] [options]` re-analyzes whenever something changes. It uses the operating system's native file watching: recursive on macOS and Windows; on Linux, one watcher per scanned folder, so skipped folders like `node_modules` are never watched. If watching fails, it falls back to polling.
@@ -266,7 +318,7 @@ All scan, report, and output options are accepted too (`pretty` and `json` forma
 
 **Ages and dates:** an age counts back from now (`45s`, `30min`, `12h`, `90d`, `2w`, `6mo`, `1y`). A date is `YYYY-MM-DD` in local time, or any ISO 8601 timestamp.
 
-**Patterns** use [gitignore syntax](https://git-scm.com/docs/gitignore#_pattern_format) relative to the analyzed directory: `*.log` matches at any depth, `build/` matches only directories, `/out` matches only at the top, `docs/**/*.pdf` matches nested files, and `!keep.log` re-includes a file.
+**Patterns** use [gitignore syntax](https://git-scm.com/docs/gitignore#_pattern_format) relative to the analyzed directory: `*.log` matches at any depth, `build/` matches only directories, `/out` matches only at the top, `docs/**/*.pdf` matches nested files, and `!keep.log` re-includes a file that an earlier pattern in the same list excluded. A negation cannot re-include a file inside an excluded folder, a default exclude such as `node_modules` (use `--all`), or a file that `.gitignore` excludes, because exclude patterns are checked first. `dat explain <path>` shows which rule decided.
 
 ## Budgets in CI
 
@@ -418,6 +470,7 @@ await writeFile('report.md', renderAnalysisMarkdown(result));
 | `analyze(path, options?)`                                                             | Analyze a tree. Options mirror the CLI flags: `exclude`, `gitignore`, `maxDepth`, `minSize`, `modifiedAfter`, `top`, `largeFiles`, `duplicates`, `empty`, `stale`, `tree`, `budgets`, `concurrency`, `signal`, `onProgress`, and more. |
 | `compare(left, right, options?)`                                                      | Diff two trees.                                                                                                                                                                                                                        |
 | `listDirectories(path, options?)`                                                     | The folders a scan would enter.                                                                                                                                                                                                        |
+| `explainPath(root, path, options?)`, `explainSkips(root, options?)`                   | Why a scan counts or skips one path, and everything a scan skips grouped by rule (`limit` caps listed entries). Render with `renderPathExplanation` and `renderSkipsExplanation`.                                                      |
 | `renderAnalysis`, `renderAnalysisMarkdown`, `renderAnalysisCsv`, `renderAnalysisHtml` | Render a result in any format. `renderComparison*` does the same for comparisons.                                                                                                                                                      |
 | `formatBytes`, `parseSize`, `parseDuration`, `parsePointInTime`                       | Unit helpers.                                                                                                                                                                                                                          |
 | `loadConfig`, `validateConfig`, `buildJsonSchema`                                     | Config helpers.                                                                                                                                                                                                                        |
@@ -466,7 +519,7 @@ The benchmark script reports scan and duplicate timings plus process peak RSS (n
 
 | Code  | Meaning                                                       |
 | ----- | ------------------------------------------------------------- |
-| `0`   | Success                                                       |
+| `0`   | Success, including every `dat explain` decision               |
 | `1`   | Error: invalid option or config, missing directory, and so on |
 | `2`   | A budget failed                                               |
 | `130` | Interrupted (Ctrl+C)                                          |
@@ -491,7 +544,7 @@ v3 is a rewrite with a new output format. Most commands keep working unchanged.
 
 ## FAQ
 
-**Why does the total differ from `du`?** `du` reports blocks allocated on disk, while the headline size is the sum of file lengths. The `On disk` line matches `du`. Also check what was skipped: `.git` and `node_modules` are excluded by default (`--all` includes them), and hard-linked data is counted once, as `du` does.
+**Why does the total differ from `du`?** `du` reports blocks allocated on disk, while the headline size is the sum of file lengths. The `On disk` line matches `du`. Also check what was skipped: `.git` and `node_modules` are excluded by default (`--all` includes them), and hard-linked data is counted once, as `du` does. `dat explain` lists everything a scan skipped and why.
 
 **Is it safe to run on a huge directory?** Yes. The default scan keeps bounded top-N file lists, but folder metadata, hard-link tracking, and symlink tracking still require memory. Duplicate detection, directory comparisons, and optional file lists use additional memory, filesystem concurrency is bounded, and unreadable paths are reported rather than fatal. Press Ctrl+C at any time.
 

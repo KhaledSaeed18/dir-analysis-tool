@@ -16,6 +16,26 @@ export { analyze, DEFAULT_LARGE_FILE_THRESHOLD, DEFAULT_STALE_AGE } from './core
 export type { AnalyzeOptions, AnalysisProgress } from './core/analyze.ts';
 export { compare } from './core/compare.ts';
 export type { CompareOptions } from './core/compare.ts';
+export {
+    DEFAULT_EXPLAIN_LIMIT,
+    EXPLAIN_VERSION,
+    explainPath,
+    explainSkips,
+    MAX_EXPLAIN_LIMIT,
+} from './core/explain.ts';
+export type {
+    ExplainDecision,
+    ExplainEntryType,
+    ExplainGroup,
+    ExplainNote,
+    ExplainNoteCode,
+    ExplainReason,
+    ExplainSkipsOptions,
+    ExplainSource,
+    ExplainTotals,
+    PathExplanation,
+    SkipsExplanation,
+} from './core/explain.ts';
 export { DEFAULT_CONCURRENCY, listDirectories } from './core/options.ts';
 export type { ScanSettings } from './core/options.ts';
 export { DEFAULT_EXCLUDES } from './core/exclude.ts';
@@ -34,6 +54,8 @@ export type { PrettyOptions } from './reporters/pretty.ts';
 export { renderAnalysisMarkdown, renderComparisonMarkdown } from './reporters/markdown.ts';
 export { renderAnalysisCsv, renderComparisonCsv } from './reporters/csv.ts';
 export { renderAnalysisHtml } from './reporters/html.ts';
+export { renderPathExplanation, renderSkipsExplanation } from './reporters/explain.ts';
+export type { ExplainRenderOptions } from './reporters/explain.ts';
 export { createStyle } from './format/style.ts';
 export type { Style } from './format/style.ts';
 export { AbortError, DatError } from './errors.ts';
