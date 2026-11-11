@@ -42,8 +42,8 @@ Google Chrome is required for rendering; set `CHROME` to another Chromium execut
 
 ```text
 src/
-  core/        scanning, exclusion rules, analysis, duplicates, comparison, budgets
-  reporters/   pretty (terminal), Markdown, CSV, and HTML renderers
+  core/        scanning, exclusion rules, analysis, duplicates, comparison, budgets, explain
+  reporters/   pretty (terminal), Markdown, CSV, HTML, and explain renderers
   config/      config file validation and discovery; the source of schema.json
   format/      byte, time, color, and text helpers
   cli/         commands, option parsing, progress, and file watching
@@ -63,6 +63,7 @@ A few principles keep the code base consistent:
 - **Memory stays bounded.** Anything computed per file during a scan must use constant memory, unless the user opted into a report that lists those files.
 - **Output is deterministic.** Sort by size, then by path with `comparePaths`, never by discovery order.
 - **Stdout is for the report only.** Messages, warnings, and progress go to stderr.
+- **Ordinary scans stay fast.** `explain` needs to know which rule decided, so it re-checks skipped entries one rule at a time through the scanner's `onSkip` hook. Keep that work off the normal scan path: the hook is unset unless `explain` runs.
 
 ## Agent skill
 

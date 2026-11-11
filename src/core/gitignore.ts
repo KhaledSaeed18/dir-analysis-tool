@@ -113,9 +113,7 @@ export class GitignoreMatcher {
         source: string | readonly string[],
         options: GitignoreOptions = {}
     ): GitignoreMatcher {
-        // Like Git, skip a leading byte order mark and strip one CR from each line ending.
-        const lines =
-            typeof source === 'string' ? source.replace(/^\uFEFF/, '').split(EOL) : source;
+        const lines = typeof source === 'string' ? splitRuleLines(source) : source;
         const ignoreCase = options.ignoreCase === true;
         const flags = ignoreCase ? 'i' : '';
         const runs: Run[] = [];
@@ -422,6 +420,15 @@ const LITERAL = /^[^*?[\\]+$/;
 
 /** A line ending; a final CR counts because Git treats the end of a file as a newline. */
 const EOL = /\r?\n|\r$/;
+
+/**
+ * Splits an ignore file into lines as {@link GitignoreMatcher.compile} reads
+ * them, so index + 1 is the line number Git reports.
+ */
+export function splitRuleLines(source: string): string[] {
+    // Like Git, skip a leading byte order mark and strip one CR from each line ending.
+    return source.replace(/^\uFEFF/, '').split(EOL);
+}
 
 /** Removes unescaped trailing spaces. Tabs are significant, as they are in Git. */
 function trimTrailingSpaces(line: string): string {

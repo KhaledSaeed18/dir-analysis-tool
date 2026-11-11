@@ -69,7 +69,12 @@ describe('agent skill: SKILL.md', () => {
     it('only uses options the CLI documents', async () => {
         const help = (
             await Promise.all(
-                [['--help'], ['analyze', '--help'], ['compare', '--help']].map(async (args) => {
+                [
+                    ['--help'],
+                    ['analyze', '--help'],
+                    ['compare', '--help'],
+                    ['explain', '--help'],
+                ].map(async (args) => {
                     const result = await cli(args);
                     return result.stdout;
                 })

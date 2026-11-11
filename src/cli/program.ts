@@ -5,6 +5,7 @@ import { VERSION } from '../version.ts';
 import { normalizeArgv } from './argv.ts';
 import { registerAnalyze } from './commands/analyze.ts';
 import { registerCompare } from './commands/compare.ts';
+import { registerExplain } from './commands/explain.ts';
 import { registerInit } from './commands/init.ts';
 import { registerWatch } from './commands/watch.ts';
 import { Context } from './context.ts';
@@ -28,6 +29,7 @@ export function createProgram(ctx: Context): Command {
 
     registerAnalyze(program, ctx);
     registerCompare(program, ctx);
+    registerExplain(program, ctx);
     registerWatch(program, ctx);
     registerInit(program, ctx);
     program.addHelpText(

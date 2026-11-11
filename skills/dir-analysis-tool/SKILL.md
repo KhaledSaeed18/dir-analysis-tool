@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.2 or later (below 4) from npm (installed or through npx); network access is needed only if npx must download it.
 metadata:
   author: Khaled Saeed
-  version: '1.0.0'
+  version: '1.1.0'
   homepage: https://github.com/KhaledSaeed18/dir-analysis-tool
 ---
 
@@ -25,7 +25,7 @@ npx --yes "dir-analysis-tool@^3.2" --version   # no install needed; downloads to
 Keep the quotes and the `^3.2` range: a plain `@3` lets npx reuse any older cached 3.x without checking for a newer one.
 
 - If the global install prints an older 3.x, prefer the npx command, and suggest `npm install -g dir-analysis-tool@latest` to the user rather than running it yourself.
-- If npx fails (no network, sandbox, registry error) and an older 3.x is installed, use that one: every command in this skill works from 3.0. Tell the user which version you ran.
+- If npx fails (no network, sandbox, registry error) and an older 3.x is installed, use that one: every command in this skill works from 3.0, except `dat explain`, which needs 3.3. Tell the user which version you ran.
 - Never replace the tool with your own scripts (`du`, `find`, hashing code) without telling the user that you did and why. Measurements from your own script are not results from dir-analysis-tool.
 
 The examples below write `dat` for whichever command worked. Only type a bare `dat` if `dat --version` prints a suitable version, because an unrelated program is also called `dat`. Inside the dir-analysis-tool source repository you can also use `node dist/cli.js` after `pnpm build`.
@@ -36,7 +36,7 @@ If Node.js is missing or older than 22.12, stop and tell the user; do not fall b
 
 - **Use `--json` for facts and the pretty report for people.** JSON goes to stdout alone (progress and warnings go to stderr). Sizes in JSON are raw bytes; paths are relative to `root` and use `/`. The pretty report shortens lists to `--top` items (default 10), while JSON always contains every duplicate group and every budget result.
 - **Read the exit code.** `0` success, `1` error (bad flag, missing directory), `2` a budget failed (the report is still complete and valid), `130` interrupted.
-- **Know what was skipped.** `.git`, `.hg`, `.svn`, and `node_modules` are skipped by default; `summary.excluded` counts what was skipped. `--all` includes them. `-g` also honors `.gitignore`.
+- **Know what was skipped.** `.git`, `.hg`, `.svn`, and `node_modules` are skipped by default; `summary.excluded` counts what was skipped. `--all` includes them. `-g` also honors `.gitignore`. `dat explain` (3.3 or later) says what was skipped and which rule skipped it; see section 6.
 - **Quote budget rules and patterns.** `<` and `>` are shell redirections: always write `-b "size<=2MB"`, never `-b size<=2MB`. Quote globs too: `-e '*.map'`.
 - **Mind the units.** `kB`, `MB`, `GB` are powers of 1000; `KiB`, `MiB`, `k`, `M` are powers of 1024. Reports use binary units unless you pass `--si`. Quote the user's unit back to them.
 - **Never delete, move, or rewrite files on your own.** Report findings and proposed actions; act only on an explicit request, and only on the paths the user approved.
@@ -132,10 +132,26 @@ To keep budgets in the repository instead, put them in `.dir-analyzer.json`:
 }
 ```
 
-## 6. Troubleshooting
+## 6. Explain what was skipped
+
+When totals look wrong, a file seems missing, or someone asks why a path is not counted, ask the CLI instead of reasoning about patterns. It needs 3.3 or later; with an older version, compare runs with and without `--all`, `-g`, or `-e` instead, and say so.
+
+```bash
+dat explain -g --json                 # everything a -g scan leaves out, grouped by rule
+dat explain build/out.js -g --json    # why one path is or is not counted
+```
+
+Pass the same scan options as the scan you are explaining. A path is relative to the current directory; `--root <dir>` sets the scan root (default: the current directory).
+
+- Path form: read `decision` (`included`, `excluded`, `filtered`, `skipped`, `not-found`), then `reason`: `source` (`default`, `pattern`, `gitignore`, `info-exclude`, `size`, `date`, `max-depth`, `symlink`, `special-file`, `error`), `at` (the path or the ancestor that decided), `file` and `line` for ignore files, `rule`, and `limit` with `actual` for filters.
+- Summary form: `totals` (equal to `summary.excluded` and `summary.filtered` from the same scan, plus `depthSkipped`) and `groups[]` with `source`, `file`, `line`, `rule`, `count`, `entries` (first 20; `--limit` up to 1000), and `truncated`.
+- The exit code is `0` for every decision; read `decision`, not the exit code.
+- Read `notes[]` and pass them on. They say when something cannot be known (sizes inside an excluded folder are never measured, `descendants` is `null`), when a negation such as `!build/keep/` or `-e '!node_modules'` cannot take effect, when the scan root itself is ignored by Git, and that Git's global excludes file is not read.
+
+## 7. Troubleshooting
 
 - `error Not a directory` or `error No such directory` (exit code `1`): check the path; the CLI analyzes directories, not single files.
 - Numbers differ from `du`: `du` reports allocated blocks (`summary.diskBytes`), while the headline is apparent size; also check `--all` and hard links (counted once unless `--count-hardlinks`).
 - Huge trees: the scan is fast and memory-bounded, but duplicate detection reads candidate files. Narrow it with `--min-duplicate-size 1MB` or a subdirectory first.
 - Unreadable paths are listed in `errors[]`; mention them, because the totals exclude them.
-- Other commands: `dat compare <before> <after>` explains what grew between two builds; `dat --help` lists every option.
+- Other commands: `dat compare <before> <after>` explains what grew between two builds; `dat explain` explains what a scan skipped; `dat --help` lists every option.
