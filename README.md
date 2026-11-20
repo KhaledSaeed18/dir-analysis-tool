@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://www.npmjs.com/package/dir-analysis-tool">
-  <img src=".github/assets/dir-analysis-tool-banner.png" alt="dir-analysis-tool: fast, memory-bounded directory analysis for your terminal and CI" width="100%" />
+  <img src="https://raw.githubusercontent.com/KhaledSaeed18/dir-analysis-tool/main/.github/assets/dir-analysis-tool-banner.png" alt="dir-analysis-tool: fast, memory-bounded directory analysis for your terminal and CI" width="100%" />
 </a>
 
 <h1>dir-analysis-tool</h1>
@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/dir-analysis-tool"><img src="https://shieldcn.dev/npm/dw/dir-analysis-tool.svg" alt="npm downloads" /></a>
   <a href="https://github.com/KhaledSaeed18/dir-analysis-tool/actions/workflows/ci.yml"><img src="https://shieldcn.dev/github/ci/KhaledSaeed18/dir-analysis-tool.svg" alt="CI status" /></a>
   <a href="https://www.npmjs.com/package/dir-analysis-tool"><img src="https://shieldcn.dev/npm/types/dir-analysis-tool.svg" alt="TypeScript types" /></a>
-  <a href="LICENSE"><img src="https://shieldcn.dev/npm/license/dir-analysis-tool.svg?variant=secondary" alt="License: MIT" /></a>
+  <a href="https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/LICENSE"><img src="https://shieldcn.dev/npm/license/dir-analysis-tool.svg?variant=secondary" alt="License: MIT" /></a>
 </p>
 
 <p>
@@ -364,7 +364,7 @@ A GitHub Actions step that posts a report to the job summary and enforces a budg
 
 Only the report goes to stdout. Progress, warnings, and status messages go to stderr, so `dat . --json > out.json` and pipes always get clean data.
 
-JSON is versioned (`"schemaVersion": 3`). Sizes are raw bytes, dates are ISO 8601, and paths are relative to `root` with `/` separators on every platform. Every field is described by a JSON Schema that ships in the package as `dir-analysis-tool/report.schema.json` ([view it](https://unpkg.com/dir-analysis-tool@3/report.schema.json)), covering `analyze`, `compare`, `explain`, and compact output, and by the [types](src/types.ts). In short:
+JSON is versioned (`"schemaVersion": 3`). Sizes are raw bytes, dates are ISO 8601, and paths are relative to `root` with `/` separators on every platform. Every field is described by a JSON Schema that ships in the package as `dir-analysis-tool/report.schema.json` ([view it](https://unpkg.com/dir-analysis-tool@3/report.schema.json)), covering `analyze`, `compare`, `explain`, and compact output, and by the [types](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/src/types.ts). In short:
 
 ```jsonc
 {
@@ -513,7 +513,7 @@ An official [Agent Skill](https://agentskills.io) lets coding agents such as Cla
 npx skills add KhaledSaeed18/dir-analysis-tool --skill dir-analysis-tool
 ```
 
-Then ask in your own words, for example "why is this repo so big?" or "fail CI if `dist` goes over 2 MB". See [skills/README.md](skills/README.md) for other ways to install it, tested agents, and the evals.
+Then ask in your own words, for example "why is this repo so big?" or "fail CI if `dist` goes over 2 MB". See [skills/README.md](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/skills/README.md) for other ways to install it, tested agents, and the evals.
 
 ## How it works
 
@@ -588,8 +588,20 @@ v3 is a rewrite with a new output format. Most commands keep working unchanged.
 
 ## Contributing
 
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, and run `pnpm check` before opening a pull request.
+Bug reports and pull requests are welcome. The most useful report is a result you believe is wrong: open a [wrong result issue](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/new?template=wrong_result.yml) with the command, a small directory layout and the `--json` report. For a crash, an idea for a new report or a gap in these docs, [choose an issue form](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/new/choose).
+
+Development needs Node.js 22.18 or later and pnpm (the version is pinned in `package.json`), on macOS, Linux or Windows:
+
+```bash
+pnpm install
+pnpm dev ~/Downloads -d   # run the CLI from source
+pnpm check                # everything CI runs
+```
+
+[CONTRIBUTING.md](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/CONTRIBUTING.md) covers the setup, the product rules, commit messages and how releases work; [AGENTS.md](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/AGENTS.md) maps the code. Every `feat` or `fix` merged to `main` is released to npm.
+
+Everyone taking part follows the [Code of Conduct](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/CODE_OF_CONDUCT.md). Report security vulnerabilities privately, as [SECURITY.md](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/SECURITY.md) describes, and accessibility barriers as [ACCESSIBILITY.md](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/ACCESSIBILITY.md) describes.
 
 ## License
 
-[MIT](LICENSE), by [Khaled Saeed](https://github.com/KhaledSaeed18).
+[MIT](https://github.com/KhaledSaeed18/dir-analysis-tool/blob/main/LICENSE), by [Khaled Saeed](https://github.com/KhaledSaeed18).
