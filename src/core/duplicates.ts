@@ -2,6 +2,7 @@ import { createHash, hash } from 'node:crypto';
 import { readFile } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { AbortError } from '../errors.ts';
+import { exactInodeKey } from './scanner.ts';
 
 /** Files up to this size are read in one call and hashed in full straight away. */
 const SAMPLE_THRESHOLD = 256 * 1024;
@@ -17,6 +18,8 @@ export interface DuplicateCandidate {
     /** Identity of the underlying data, so hard links are never reported as copies. */
     dev: number;
     ino: number;
+    /** Number of hard links; a file with one link cannot share data with another path. */
+    nlink: number;
 }
 
 export interface HashedGroup<T extends DuplicateCandidate> {
@@ -60,7 +63,7 @@ export async function findDuplicates<T extends DuplicateCandidate>(
     const small: T[][] = [];
     const large: T[][] = [];
     for (const group of sizeGroups) {
-        const distinct = distinctInodes(group);
+        const distinct = await distinctInodes(group, options.pathOf);
         if (distinct.length < 2) continue;
         (distinct[0]!.bytes <= SAMPLE_THRESHOLD ? small : large).push(distinct);
     }
@@ -221,15 +224,38 @@ async function sampleHash(path: string, size: number, buffers: BufferPool): Prom
     return hasher.digest('hex');
 }
 
-function distinctInodes<T extends DuplicateCandidate>(group: T[]): T[] {
+/**
+ * Drops extra hard links to the same data. Only files with several links can
+ * share data, and their identity is exact even where `ino` exceeds 2^53
+ * (Windows file IDs); comparing rounded numbers once hid real duplicates.
+ */
+async function distinctInodes<T extends DuplicateCandidate>(
+    group: T[],
+    pathOf: (candidate: T) => string
+): Promise<T[]> {
     if (group.length < 2) return group;
     const seen = new Set<string>();
-    return group.filter((candidate) => {
-        const key = `${candidate.dev}:${candidate.ino}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
+    const distinct: T[] = [];
+    for (const candidate of group) {
+        if (candidate.nlink > 1) {
+            let key: string;
+            if (Number.isSafeInteger(candidate.ino)) {
+                key = `${candidate.dev}:${candidate.ino}`;
+            } else {
+                try {
+                    key = await exactInodeKey(pathOf(candidate));
+                } catch {
+                    // Unreadable now; hashing will fail and record the error.
+                    distinct.push(candidate);
+                    continue;
+                }
+            }
+            if (seen.has(key)) continue;
+            seen.add(key);
+        }
+        distinct.push(candidate);
+    }
+    return distinct;
 }
 
 /** Reuses read buffers so streaming large files allocates a fixed amount of memory. */

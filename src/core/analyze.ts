@@ -305,7 +305,14 @@ class Collector implements ScanVisitor {
             }
         }
         if (features.duplicates && bytes >= features.minDuplicateSize) {
-            const candidate: Candidate = { dir, name, bytes, dev: stats.dev, ino: stats.ino };
+            const candidate: Candidate = {
+                dir,
+                name,
+                bytes,
+                dev: stats.dev,
+                ino: stats.ino,
+                nlink: stats.nlink,
+            };
             const existing = this.#bySize.get(bytes);
             if (existing === undefined) this.#bySize.set(bytes, candidate);
             else if (Array.isArray(existing)) existing.push(candidate);

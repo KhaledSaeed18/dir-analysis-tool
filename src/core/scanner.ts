@@ -133,7 +133,7 @@ export class Scanner {
         const { root, signal, excluder } = this.#options;
         if (signal?.aborted) throw new AbortError();
         const rootStats = await stat(root);
-        if (this.#options.followSymlinks) this.#seenDirs.add(inodeKey(rootStats));
+        if (this.#options.followSymlinks) this.#seenDirs.add(await inodeKey(rootStats, root));
 
         const chain = await excluder.loadAncestorChain(root);
         const index = this.#addDir('', -1, 0);
@@ -262,7 +262,8 @@ export class Scanner {
             this.recordError(this.relativePath(dirIndex, name), error);
             return;
         }
-        this.#acceptFile(dirIndex, name, stats);
+        const pending = this.#acceptFile(dirIndex, name, fullPath, stats);
+        if (pending) await pending;
     }
 
     /**
@@ -319,26 +320,49 @@ export class Scanner {
             }
             // Only reached for every directory when following symlinks: enter each
             // directory once, however many paths lead to it (this also breaks cycles).
-            const key = inodeKey(stats);
+            const key = await inodeKey(stats, fullPath);
             if (this.#seenDirs.has(key)) return;
             this.#seenDirs.add(key);
             this.#enterDir(dirIndex, name, fullPath, chain);
         } else if (stats.isFile()) {
-            this.#acceptFile(dirIndex, name, stats);
+            const pending = this.#acceptFile(dirIndex, name, fullPath, stats);
+            if (pending) await pending;
         }
     }
 
-    #acceptFile(dirIndex: number, name: string, stats: Stats): void {
+    /**
+     * Counts a file once per underlying data. Synchronous unless the file's
+     * identity needs an exact (bigint) stat; see `inodeKey`.
+     */
+    #acceptFile(
+        dirIndex: number,
+        name: string,
+        fullPath: string,
+        stats: Stats
+    ): Promise<void> | undefined {
         if (!this.#options.countHardlinks && (stats.nlink > 1 || this.#options.followSymlinks)) {
-            const key = inodeKey(stats);
-            if (this.#seenInodes.has(key)) {
-                // Reached again through another hard link, or through a followed symlink.
-                if (stats.nlink > 1) this.counters.hardlinks++;
-                return;
+            const key = inodeKey(stats, fullPath);
+            if (typeof key !== 'string') {
+                return key.then((exact) => this.#acceptKeyedFile(dirIndex, name, stats, exact));
             }
-            this.#seenInodes.add(key);
+            this.#acceptKeyedFile(dirIndex, name, stats, key);
+            return undefined;
         }
+        this.#countFile(dirIndex, name, stats);
+        return undefined;
+    }
 
+    #acceptKeyedFile(dirIndex: number, name: string, stats: Stats, key: string): void {
+        if (this.#seenInodes.has(key)) {
+            // Reached again through another hard link, or through a followed symlink.
+            if (stats.nlink > 1) this.counters.hardlinks++;
+            return;
+        }
+        this.#seenInodes.add(key);
+        this.#countFile(dirIndex, name, stats);
+    }
+
+    #countFile(dirIndex: number, name: string, stats: Stats): void {
         const size = stats.size;
         if (this.#filtersActive) {
             const o = this.#options;
@@ -399,8 +423,23 @@ export function rollUp(dirs: DirNode[]): void {
     }
 }
 
-function inodeKey(stats: Stats): string {
-    return `${stats.dev}:${stats.ino}`;
+/**
+ * `dev:ino` identity of a file or directory. `Stats.ino` is a Number, which is
+ * exact only up to 2^53; Windows NTFS file IDs keep a sequence number in their
+ * top 16 bits and often exceed that, so neighboring files can round to the
+ * same value. Those few get an exact bigint stat instead. Keys are only taken
+ * for files and directories (a followed symlink is keyed by its target), so
+ * the stat follows links.
+ */
+export function inodeKey(stats: Stats, path: string): string | Promise<string> {
+    if (Number.isSafeInteger(stats.ino)) return `${stats.dev}:${stats.ino}`;
+    return exactInodeKey(path);
+}
+
+/** `dev:ino` from a bigint stat, exact for any 64-bit file ID. */
+export async function exactInodeKey(path: string): Promise<string> {
+    const exact = await stat(path, { bigint: true });
+    return `${exact.dev}:${exact.ino}`;
 }
 
 function joinNative(dir: string, name: string): string {
