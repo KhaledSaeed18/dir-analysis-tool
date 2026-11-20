@@ -1,6 +1,7 @@
 import { Writable, type Readable } from 'node:stream';
 import { run } from '../../src/cli/program.ts';
 import type { CliIO } from '../../src/cli/io.ts';
+import { assertValidReport } from './report-schema.ts';
 
 export interface CliResult {
     code: number;
@@ -58,6 +59,9 @@ export async function cli(args: string[], options: RunOptions = {}): Promise<Cli
     return { code, stdout: stdout.text, stderr: stderr.text };
 }
 
+/** Parses a JSON report, failing unless it matches report.schema.json and declares every field. */
 export function json<T = Record<string, unknown>>(result: CliResult): T {
-    return JSON.parse(result.stdout) as T;
+    const report: unknown = JSON.parse(result.stdout);
+    assertValidReport(report);
+    return report as T;
 }

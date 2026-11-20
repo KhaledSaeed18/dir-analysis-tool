@@ -17,7 +17,7 @@
 <!-- The 3.x stability promise: https://github.com/KhaledSaeed18/dir-analysis-tool#stability -->
 
 - [ ] Commands, options, budget metrics, config keys, exit codes and library exports are unchanged, or only added to.
-- [ ] The JSON report only gains fields, and `src/types.ts` documents each new one.
+- [ ] The JSON report only gains fields, and `src/types.ts` and `report.schema.json` declare each new one.
 - [ ] Every file name is escaped in every output format.
 - [ ] Memory stays bounded on a scan that doesn't ask for file lists.
 - [ ] The core still has no runtime dependencies.

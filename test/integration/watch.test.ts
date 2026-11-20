@@ -7,6 +7,7 @@ import { listDirectories } from '../../src/core/options.ts';
 import type { AnalysisResult } from '../../src/types.ts';
 import { cli } from '../helpers/cli.ts';
 import { fixture } from '../helpers/fixture.ts';
+import { assertValidReport } from '../helpers/report-schema.ts';
 
 function waitFor(check: () => boolean, timeout = 10_000): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -27,7 +28,11 @@ const lines = (text: string): AnalysisResult[] =>
     text
         .split('\n')
         .filter(Boolean)
-        .map((line) => JSON.parse(line) as AnalysisResult);
+        .map((line) => {
+            const report: unknown = JSON.parse(line);
+            assertValidReport(report);
+            return report as AnalysisResult;
+        });
 
 describe('dat watch', () => {
     it('re-analyzes on changes and prints one JSON document per run', async () => {

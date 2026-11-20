@@ -7,6 +7,7 @@ import { escapeControlInLines, escapeControlKeepingWhitespace } from '../../src/
 import { renderAnalysisAs, renderComparisonAs } from '../../src/reporters/index.ts';
 import { fixture, isWindows } from '../helpers/fixture.ts';
 import { cli } from '../helpers/cli.ts';
+import { assertValidReport } from '../helpers/report-schema.ts';
 
 const ESC = '\u001b';
 const COLOR = `evil${ESC}[31m.txt`;
@@ -81,6 +82,7 @@ describe.skipIf(isWindows)('file names with control characters', () => {
         const text = renderAnalysisAs('json', result, options);
         expect(escapeControlInLines(text)).toBe(text);
         const parsed = JSON.parse(text) as typeof result;
+        assertValidReport(parsed);
         const paths = parsed.largestFiles.map((file) => file.path);
         for (const name of NAMES) expect(paths).toContain(name);
     });
