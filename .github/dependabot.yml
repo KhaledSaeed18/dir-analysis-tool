@@ -1,39 +1,64 @@
+# Dependency updates: at most one grouped pull request per group, once a week.
+#
+# dir-analysis-tool has no runtime dependencies, so every npm update is a dev dependency.
+# Commit types are chosen so that merging an update never publishes to npm:
+# semantic-release releases only on feat and fix, and these use build and ci.
+# Merge with "rebase and merge", like any other pull request.
 version: 2
+
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: npm # reads pnpm-lock.yaml and updates it with pnpm
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+      time: '06:00'
+    # Skip versions published in the last week, so a bad or compromised release
+    # has time to be pulled before it reaches the lockfile.
+    cooldown:
+      default-days: 7
+    # Move the ranges in package.json along with the lockfile.
+    versioning-strategy: increase
     commit-message:
-      # Runtime dependency updates ship to users as a patch release; tooling updates do not release.
-      prefix: fix
+      prefix: build
       prefix-development: build
-      include: scope
-    ignore:
-      # Types track the oldest supported Node.js (engines), so code cannot use newer APIs by accident.
-      - dependency-name: '@types/node'
-        update-types: [version-update:semver-major]
-      # v10 needs conventional-changelog-writer 9, which semantic-release's notes generator does not use yet.
-      - dependency-name: conventional-changelog-conventionalcommits
-        update-types: [version-update:semver-major]
+      include: scope # build(deps-dev): ...
     groups:
-      tooling:
+      # Minor and patch updates: one pull request, usually a straight merge.
+      dev-dependencies:
         dependency-type: development
         update-types: [minor, patch]
-      runtime:
-        dependency-type: production
-        update-types: [minor, patch]
+      # Major updates: a second pull request, since they may need code changes.
+      dev-dependencies-major:
+        dependency-type: development
+        update-types: [major]
+      # If security updates are turned on, batch them as well.
+      security:
+        applies-to: security-updates
+        patterns: ['*']
+    ignore:
+      # The types must match the oldest supported Node (engines: >=22.12.0),
+      # or code could use APIs that Node 22 lacks.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      # Preset 10 needs conventional-changelog-writer 9, and the latest
+      # @semantic-release/release-notes-generator (14.1.1) still uses writer 8,
+      # so it would break the release notes. Drop this once a stable generator
+      # supports it; test/release-config.test.ts fails if it is still too early.
+      - dependency-name: conventional-changelog-conventionalcommits
+        versions: ['>=10']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+      time: '06:00'
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: ci
-      include: scope
+      include: scope # ci(deps): ...
     groups:
-      actions:
+      github-actions:
         patterns: ['*']
