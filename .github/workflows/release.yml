@@ -39,11 +39,10 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          # No registry-url: it writes an .npmrc with a placeholder token that would shadow NPM_TOKEN.
+          # No registry-url: it writes an .npmrc with a placeholder token that would get in the way.
       - run: pnpm install --frozen-lockfile
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Only needed until npm trusted publishing is configured for this package.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN: npm trusted publishing authenticates this workflow through OIDC.
         run: pnpm exec semantic-release
