@@ -1,8 +1,8 @@
-minimumReleaseAgeExclude:
-  - '@commitlint/cli@21.2.4'
-  - '@commitlint/config-conventional@21.2.4'
-  - '@commitlint/ensure@21.2.4'
-  - '@commitlint/lint@21.2.4'
-  - '@commitlint/load@21.2.4'
-  - '@commitlint/rules@21.2.4'
 onlyBuiltDependencies: []
+
+# semantic-release loads its changelog preset from its own install first, which
+# finds whatever pnpm hoisted. Keeping the preset out of the hoist makes it load
+# the version pinned in package.json, not the newer one commitlint depends on.
+hoistPattern:
+  - '*'
+  - '!conventional-changelog-conventionalcommits'
