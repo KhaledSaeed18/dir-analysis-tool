@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.4.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.3.1...v3.4.0) (2026-11-20)
+
+### Features
+
+* **analyze:** add --compact for bounded one-line JSON ([67c3573](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/67c357354bad6f89f752e2a9d2977663d4df09f5))
+
 ## [3.3.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.3.0...v3.3.1) (2026-11-11)
 
 ### Bug Fixes
