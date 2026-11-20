@@ -23,8 +23,9 @@ concurrency:
 jobs:
   # Decides whether the test jobs run. A change that only touches docs (Markdown,
   # LICENSE, .github/assets) can't change a test result, so it skips the test matrix;
-  # quality still runs, since it checks the Markdown's formatting. Anything else,
-  # a manual run, or a diff that can't be worked out runs everything.
+  # quality still runs, since it checks the Markdown's formatting and runs the tests
+  # that read the docs. The agent skill under skills/ is tested like code. Anything
+  # else, a manual run, or a diff that can't be worked out runs everything.
   changes:
     name: Detect code changes
     runs-on: ubuntu-latest
@@ -50,7 +51,8 @@ jobs:
           esac
           code=true
           if [ -n "$range" ] && files=$(git diff --name-only "$range" 2>/dev/null) && [ -n "$files" ]; then
-            if ! printf '%s\n' "$files" | grep -Evq '(^|/)[^/]+\.md$|^LICENSE$|^\.github/assets/'; then
+            if ! printf '%s\n' "$files" | grep -Evq '(^|/)[^/]+\.md$|^LICENSE$|^\.github/assets/' &&
+              ! printf '%s\n' "$files" | grep -q '^skills/'; then
               code=false
             fi
           fi
@@ -77,6 +79,8 @@ jobs:
         run: pnpm schema && git diff --exit-code schema.json
       - run: pnpm build
       - run: pnpm check:package
+      - name: Tests that read the docs
+        run: pnpm vitest run test/repo
       - name: Smoke test the built CLI
         run: |
           node dist/cli.js --version
