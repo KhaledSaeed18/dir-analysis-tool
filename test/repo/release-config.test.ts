@@ -62,9 +62,10 @@ describe('the release configuration', () => {
         expect(await releaseType(['docs: reword', 'test: cover', 'refactor: tidy'])).toBeNull();
     });
 
-    it('releases a patch, minor or major from fix, docs(readme), feat and breaking changes', async () => {
+    it('releases a patch, minor or major from fix, docs(readme), perf, feat and breaking changes', async () => {
         expect(await releaseType(['fix(core): a'])).toBe('patch');
         expect(await releaseType(['docs(readme): b'])).toBe('patch');
+        expect(await releaseType(['perf(core): f'])).toBe('patch');
         expect(await releaseType(['feat(cli): c'])).toBe('minor');
         expect(await releaseType(['feat!: d\n\nBREAKING CHANGE: e'])).toBe('major');
     });
