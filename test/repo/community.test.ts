@@ -5,7 +5,9 @@ import { Context } from '../../src/cli/context.ts';
 import { createProgram } from '../../src/cli/program.ts';
 
 const root = new URL('../../', import.meta.url);
-const read = (path: string): string => readFileSync(new URL(path, root), 'utf8');
+// Windows checkouts may convert line endings.
+const read = (path: string): string =>
+    readFileSync(new URL(path, root), 'utf8').replaceAll('\r\n', '\n');
 const TEMPLATES = '.github/ISSUE_TEMPLATE/';
 
 /** The options of a dropdown in an issue form, by its id (the forms are written by hand). */
