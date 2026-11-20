@@ -4,6 +4,11 @@ name: CI
 on:
   pull_request:
   workflow_call:
+    inputs:
+      skip_macos:
+        description: Leave out the macOS job, which the pull request already ran
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
@@ -13,14 +18,54 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Actions are pinned to full commit SHAs, with the release they point to in a comment.
+# Dependabot updates both together.
 jobs:
+  # Decides whether the test jobs run. A change that only touches docs (Markdown,
+  # LICENSE, .github/assets) can't change a test result, so it skips the test matrix;
+  # quality still runs, since it checks the Markdown's formatting. Anything else,
+  # a manual run, or a diff that can't be worked out runs everything.
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          case "$EVENT" in
+            pull_request) range="$PR_BASE...$PR_HEAD" ;;
+            push) range="$PUSH_BEFORE..$PUSH_AFTER" ;;
+            *) range="" ;;
+          esac
+          code=true
+          if [ -n "$range" ] && files=$(git diff --name-only "$range" 2>/dev/null) && [ -n "$files" ]; then
+            if ! printf '%s\n' "$files" | grep -Evq '(^|/)[^/]+\.md$|^LICENSE$|^\.github/assets/'; then
+              code=false
+            fi
+          fi
+          printf '%s\n' "$files"
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   quality:
     name: Quality (lint, types, format, package)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -42,16 +87,26 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
         node: [22, 24, 26]
+        # macOS runners are scarce and often queue until GitHub cancels the job, so
+        # macOS gets one job on the oldest supported Node; its file system behavior
+        # doesn't depend on the Node version. A release leaves it out (skip_macos):
+        # the pull request ran it on the same code, and a job GitHub never starts
+        # would otherwise block the publish.
+        include: ${{ fromJSON(inputs.skip_macos == true && '[]' || '[{"os":"macos-latest","node":22}]') }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
@@ -64,7 +119,7 @@ jobs:
         run: pnpm test
       - name: Upload coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage/
