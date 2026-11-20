@@ -1,5 +1,8 @@
+# Every issue goes through a form, so reports arrive with what is needed to reproduce them.
+# GitHub adds its own "Report a security vulnerability" entry, since private vulnerability
+# reporting is on, so there is no contact link for it here.
 blank_issues_enabled: false
 contact_links:
-  - name: Security vulnerability
-    url: https://github.com/KhaledSaeed18/dir-analysis-tool/security/advisories/new
-    about: Please report security issues privately.
+  - name: Read the documentation
+    url: https://github.com/KhaledSaeed18/dir-analysis-tool#readme
+    about: Commands, options, budgets, output formats, configuration, the library API and the FAQ.

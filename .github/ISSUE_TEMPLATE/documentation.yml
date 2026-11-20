@@ -1,0 +1,27 @@
+name: Documentation
+description: Something in the README, the help text or another document is wrong, unclear or missing.
+title: '[docs] '
+labels: [documentation]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: A link to the section, or the option or command in `dat --help`.
+      placeholder: https://github.com/KhaledSaeed18/dir-analysis-tool#budgets-in-ci
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+      description: Quote the text if it is wrong, and say what dat actually does.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+      description: Optional. A pull request is welcome too.

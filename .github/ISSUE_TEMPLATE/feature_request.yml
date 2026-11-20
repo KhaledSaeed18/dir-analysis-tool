@@ -1,21 +1,53 @@
 name: Feature request
-description: Suggest a new report, option, or improvement
+description: Propose a new report, option, budget metric, output format or library function.
+title: '[feature] '
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        dir-analysis-tool has no runtime dependencies, keeps memory bounded on huge trees, and, within 3.x, never removes or changes a JSON field, option or exit code; see the [stability promise](https://github.com/KhaledSaeed18/dir-analysis-tool#stability). A proposal that fits those goes in faster.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - A new report or a change to one
+        - A new option or budget metric
+        - A new command
+        - A new output format, or a change to one
+        - The library API
+        - Something else
+    validations:
+      required: true
+
   - type: textarea
     id: problem
     attributes:
-      label: What are you trying to do?
-      description: Describe the problem or the question you want the tool to answer, not only the solution.
+      label: The problem
+      description: The question you want answered about a directory, or the workflow gap. Who runs into it, and when?
     validations:
       required: true
+
   - type: textarea
     id: proposal
     attributes:
-      label: What would you like to see?
-      description: A command or output sketch helps a lot.
+      label: Proposed behavior
+      description: The command and what it would print. A sketch of the output helps a lot.
       render: shell
+    validations:
+      required: true
+
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives you have tried
+      label: Alternatives
+      description: Other ways to get the same answer, with dat or another tool such as `du`, `find` or `git`.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to implement this myself, following CONTRIBUTING.md.
