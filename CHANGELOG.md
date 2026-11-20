@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.4.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.4.0...v3.4.1) (2026-11-20)
+
+### Bug Fixes
+
+* compare exact file IDs so Windows files are not mistaken for hard links ([aa407a6](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/aa407a6bb14059e6b1f97786e4d5e5f401602781))
+
 ## [3.4.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.3.1...v3.4.0) (2026-11-20)
 
 ### Features
