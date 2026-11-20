@@ -363,7 +363,7 @@ A GitHub Actions step that posts a report to the job summary and enforces a budg
 
 Only the report goes to stdout. Progress, warnings, and status messages go to stderr, so `dat . --json > out.json` and pipes always get clean data.
 
-JSON is versioned (`"schemaVersion": 3`). Sizes are raw bytes, dates are ISO 8601, and paths are relative to `root` with `/` separators on every platform. The [types](src/types.ts) document every field. In short:
+JSON is versioned (`"schemaVersion": 3`). Sizes are raw bytes, dates are ISO 8601, and paths are relative to `root` with `/` separators on every platform. Every field is described by a JSON Schema that ships in the package as `dir-analysis-tool/report.schema.json` ([view it](https://unpkg.com/dir-analysis-tool@3/report.schema.json)), covering `analyze`, `compare`, `explain`, and compact output, and by the [types](src/types.ts). In short:
 
 ```jsonc
 {

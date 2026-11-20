@@ -1,0 +1,1117 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://unpkg.com/dir-analysis-tool@3/report.schema.json",
+    "title": "dir-analysis-tool JSON reports",
+    "description": "Output of dat --json (schemaVersion 3), dat compare --json (schemaVersion 3) and dat explain --json (explainVersion 1). The library returns the same shapes. Within 3.x, fields are only added, never removed, renamed or retyped.",
+    "anyOf": [
+        {
+            "$ref": "#/$defs/analysis"
+        },
+        {
+            "$ref": "#/$defs/comparison"
+        },
+        {
+            "$ref": "#/$defs/pathExplanation"
+        },
+        {
+            "$ref": "#/$defs/skipsExplanation"
+        }
+    ],
+    "$defs": {
+        "toolInfo": {
+            "type": "object",
+            "required": ["name", "version"],
+            "properties": {
+                "name": {
+                    "const": "dir-analysis-tool"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "The version that wrote the report."
+                }
+            }
+        },
+        "sizeStat": {
+            "type": "object",
+            "required": ["files", "bytes"],
+            "properties": {
+                "files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "types": {
+            "type": "object",
+            "description": "Every category is always present, including empty ones.",
+            "required": [
+                "code",
+                "documents",
+                "images",
+                "videos",
+                "audio",
+                "archives",
+                "fonts",
+                "data",
+                "other"
+            ],
+            "properties": {
+                "code": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "documents": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "images": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "videos": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "audio": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "archives": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "fonts": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "data": {
+                    "$ref": "#/$defs/sizeStat"
+                },
+                "other": {
+                    "$ref": "#/$defs/sizeStat"
+                }
+            }
+        },
+        "fileEntry": {
+            "type": "object",
+            "required": ["path", "bytes", "modified"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative to the root, with / separators."
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "modified": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Last modification time, ISO 8601."
+                }
+            }
+        },
+        "directoryEntry": {
+            "type": "object",
+            "required": ["path", "bytes", "files"],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Total apparent size of everything below this directory."
+                },
+                "files": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Total number of files below this directory."
+                }
+            }
+        },
+        "extensionStat": {
+            "type": "object",
+            "required": ["extension", "files", "bytes"],
+            "properties": {
+                "extension": {
+                    "type": "string",
+                    "description": "Lowercased extension including the dot, or an empty string for files without one."
+                },
+                "files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "duplicateGroup": {
+            "type": "object",
+            "required": ["hash", "bytes", "wastedBytes", "files"],
+            "properties": {
+                "hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "description": "SHA-256 of the file contents, hex encoded."
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Size of each copy."
+                },
+                "wastedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Space reclaimable by keeping one copy."
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "omittedFiles": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Copies not listed in files; only on a group cut by compact output."
+                }
+            }
+        },
+        "fileList": {
+            "type": "object",
+            "required": ["count", "bytes", "items"],
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Number of matching files."
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Combined size of the matching files."
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/fileEntry"
+                    }
+                }
+            }
+        },
+        "scanError": {
+            "type": "object",
+            "required": ["path", "code", "message"],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string",
+                    "description": "Node.js error code, for example EACCES or ELOOP."
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "treeNode": {
+            "type": "object",
+            "required": ["name", "path", "type", "bytes", "files"],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": ["directory", "file"]
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/treeNode"
+                    }
+                },
+                "omitted": {
+                    "type": "object",
+                    "description": "Children not shown because of the per-level limit.",
+                    "required": ["files", "bytes", "entries"],
+                    "properties": {
+                        "files": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "entries": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                }
+            }
+        },
+        "budgetResult": {
+            "type": "object",
+            "required": ["rule", "metric", "operator", "limit", "actual", "passed"],
+            "properties": {
+                "rule": {
+                    "type": "string",
+                    "description": "The rule as written, for example size<=500MB."
+                },
+                "metric": {
+                    "enum": [
+                        "size",
+                        "disk",
+                        "files",
+                        "dirs",
+                        "largest",
+                        "large",
+                        "duplicates",
+                        "wasted",
+                        "empty",
+                        "stale",
+                        "errors"
+                    ]
+                },
+                "operator": {
+                    "enum": ["<", "<=", ">", ">=", "=", "!="]
+                },
+                "limit": {
+                    "type": "number"
+                },
+                "actual": {
+                    "type": "number"
+                },
+                "passed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "summary": {
+            "type": "object",
+            "required": [
+                "bytes",
+                "diskBytes",
+                "files",
+                "directories",
+                "largestFileBytes",
+                "symlinks",
+                "hardlinks",
+                "excluded",
+                "filtered",
+                "errors"
+            ],
+            "properties": {
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Apparent size: the sum of file lengths."
+                },
+                "diskBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Allocated size on disk. Equals bytes where the platform does not report blocks."
+                },
+                "files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "directories": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "largestFileBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Size of the largest file."
+                },
+                "symlinks": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "hardlinks": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Extra hard links skipped so that shared data is counted once."
+                },
+                "excluded": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Entries skipped by exclusion rules (default excludes, --exclude, .gitignore)."
+                },
+                "filtered": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Files skipped by size or date filters."
+                },
+                "errors": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Paths that could not be read."
+                }
+            }
+        },
+        "settings": {
+            "type": "object",
+            "description": "The scan settings in effect, after config files and flags were combined.",
+            "required": [
+                "exclude",
+                "defaultExcludes",
+                "gitignore",
+                "maxDepth",
+                "followSymlinks",
+                "countHardlinks",
+                "minSize",
+                "maxSize",
+                "modifiedAfter",
+                "modifiedBefore"
+            ],
+            "properties": {
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "defaultExcludes": {
+                    "type": "boolean"
+                },
+                "gitignore": {
+                    "type": "boolean"
+                },
+                "maxDepth": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                },
+                "followSymlinks": {
+                    "type": "boolean"
+                },
+                "countHardlinks": {
+                    "type": "boolean"
+                },
+                "minSize": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                },
+                "maxSize": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                },
+                "modifiedAfter": {
+                    "type": ["string", "null"]
+                },
+                "modifiedBefore": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "compact": {
+            "type": "object",
+            "description": "Present only in compact output (--compact): what was cut.",
+            "required": ["limit", "truncated", "omitted"],
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Maximum number of items kept in each list."
+                },
+                "truncated": {
+                    "type": "boolean",
+                    "description": "Whether any list was cut."
+                },
+                "omitted": {
+                    "type": "object",
+                    "description": "Items not listed, per cut list. A list that is absent here was not cut.",
+                    "required": [],
+                    "properties": {
+                        "extensions": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "errors": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "largeFiles.items": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "duplicates.items": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "duplicates.items[].files": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "emptyFiles.items": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "emptyDirectories.items": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "staleFiles.items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                }
+            }
+        },
+        "analysis": {
+            "type": "object",
+            "description": "dat analyze --json (and each line of dat watch --json).",
+            "required": [
+                "schemaVersion",
+                "tool",
+                "root",
+                "startedAt",
+                "durationMs",
+                "settings",
+                "summary",
+                "types",
+                "extensions",
+                "largestDirectories",
+                "largestFiles",
+                "errors"
+            ],
+            "properties": {
+                "schemaVersion": {
+                    "const": 3
+                },
+                "tool": {
+                    "$ref": "#/$defs/toolInfo"
+                },
+                "root": {
+                    "type": "string",
+                    "description": "Absolute path of the analyzed directory."
+                },
+                "startedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "durationMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "settings": {
+                    "$ref": "#/$defs/settings"
+                },
+                "summary": {
+                    "$ref": "#/$defs/summary"
+                },
+                "types": {
+                    "$ref": "#/$defs/types"
+                },
+                "extensions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/extensionStat"
+                    },
+                    "description": "Sorted by size, largest first."
+                },
+                "largestDirectories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/directoryEntry"
+                    }
+                },
+                "largestFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/fileEntry"
+                    }
+                },
+                "largeFiles": {
+                    "type": "object",
+                    "description": "With --large-files.",
+                    "required": ["count", "bytes", "items", "threshold"],
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/fileEntry"
+                            }
+                        },
+                        "threshold": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "The size a file must reach, in bytes."
+                        }
+                    }
+                },
+                "duplicates": {
+                    "type": "object",
+                    "description": "With --duplicates.",
+                    "required": ["count", "files", "bytes", "wastedBytes", "items"],
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Number of duplicate groups."
+                        },
+                        "files": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "wastedBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/duplicateGroup"
+                            }
+                        }
+                    }
+                },
+                "emptyFiles": {
+                    "$ref": "#/$defs/fileList",
+                    "description": "With --empty."
+                },
+                "emptyDirectories": {
+                    "type": "object",
+                    "description": "With --empty.",
+                    "required": ["count", "items"],
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "staleFiles": {
+                    "type": "object",
+                    "description": "With --stale.",
+                    "required": ["count", "bytes", "items", "modifiedBefore"],
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/fileEntry"
+                            }
+                        },
+                        "modifiedBefore": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    }
+                },
+                "tree": {
+                    "$ref": "#/$defs/treeNode",
+                    "description": "With --tree."
+                },
+                "budgets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/budgetResult"
+                    },
+                    "description": "With --budget."
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/scanError"
+                    },
+                    "description": "At most 100 entries; summary.errors has the full count."
+                },
+                "compact": {
+                    "$ref": "#/$defs/compact"
+                }
+            }
+        },
+        "side": {
+            "type": "object",
+            "required": ["root", "summary", "types"],
+            "properties": {
+                "root": {
+                    "type": "string"
+                },
+                "summary": {
+                    "$ref": "#/$defs/summary"
+                },
+                "types": {
+                    "$ref": "#/$defs/types"
+                }
+            }
+        },
+        "comparison": {
+            "type": "object",
+            "description": "dat compare --json.",
+            "required": [
+                "schemaVersion",
+                "tool",
+                "startedAt",
+                "durationMs",
+                "mode",
+                "left",
+                "right",
+                "delta",
+                "added",
+                "removed",
+                "changed",
+                "unchanged",
+                "directories"
+            ],
+            "properties": {
+                "schemaVersion": {
+                    "const": 3
+                },
+                "tool": {
+                    "$ref": "#/$defs/toolInfo"
+                },
+                "startedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "durationMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "mode": {
+                    "enum": ["size", "content"],
+                    "description": "How changed was decided: by size only, or by size then content hash."
+                },
+                "left": {
+                    "$ref": "#/$defs/side"
+                },
+                "right": {
+                    "$ref": "#/$defs/side"
+                },
+                "delta": {
+                    "type": "object",
+                    "required": ["bytes", "diskBytes", "files", "directories"],
+                    "properties": {
+                        "bytes": {
+                            "type": "integer"
+                        },
+                        "diskBytes": {
+                            "type": "integer"
+                        },
+                        "files": {
+                            "type": "integer"
+                        },
+                        "directories": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "added": {
+                    "$ref": "#/$defs/fileList"
+                },
+                "removed": {
+                    "$ref": "#/$defs/fileList"
+                },
+                "changed": {
+                    "type": "object",
+                    "required": ["count", "delta", "items"],
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "delta": {
+                            "type": "integer"
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["path", "leftBytes", "rightBytes", "delta"],
+                                "properties": {
+                                    "path": {
+                                        "type": "string"
+                                    },
+                                    "leftBytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "rightBytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "delta": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "unchanged": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "directories": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["path", "leftBytes", "rightBytes", "delta"],
+                        "properties": {
+                            "path": {
+                                "type": "string"
+                            },
+                            "leftBytes": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "rightBytes": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "delta": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "description": "Directories with the largest size change, largest absolute change first."
+                }
+            }
+        },
+        "explainSource": {
+            "enum": [
+                "default",
+                "pattern",
+                "gitignore",
+                "info-exclude",
+                "size",
+                "date",
+                "max-depth",
+                "symlink",
+                "special-file",
+                "error",
+                "unknown"
+            ]
+        },
+        "explainNote": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+                "code": {
+                    "enum": [
+                        "negation-blocked-by-parent",
+                        "negation-cannot-reach-default",
+                        "negation-cannot-reach-gitignore",
+                        "root-ignored-by-git",
+                        "global-excludes-not-read",
+                        "nested-repository",
+                        "hardlink-order-dependent",
+                        "symlink-order-dependent",
+                        "case-rule-from-platform",
+                        "not-found",
+                        "explanation-unavailable"
+                    ]
+                },
+                "message": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "rule": {
+                    "type": "string"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "explainReason": {
+            "type": "object",
+            "description": "The rule or limit that decided. Fields that do not apply to the source are null.",
+            "required": [
+                "source",
+                "at",
+                "ancestor",
+                "file",
+                "line",
+                "rule",
+                "index",
+                "limit",
+                "actual",
+                "code"
+            ],
+            "properties": {
+                "source": {
+                    "$ref": "#/$defs/explainSource"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "ancestor": {
+                    "type": "boolean"
+                },
+                "file": {
+                    "type": ["string", "null"]
+                },
+                "line": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                },
+                "rule": {
+                    "type": ["string", "null"]
+                },
+                "index": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                },
+                "limit": {
+                    "type": ["number", "string", "null"]
+                },
+                "actual": {
+                    "type": ["number", "string", "null"]
+                },
+                "code": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "pathExplanation": {
+            "type": "object",
+            "description": "dat explain <path> --json.",
+            "required": [
+                "explainVersion",
+                "root",
+                "path",
+                "type",
+                "decision",
+                "reason",
+                "descendants",
+                "notes",
+                "ignoreCase",
+                "settings"
+            ],
+            "properties": {
+                "explainVersion": {
+                    "const": 1
+                },
+                "root": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": ["file", "directory", "symlink", "other", null]
+                },
+                "decision": {
+                    "enum": ["included", "excluded", "filtered", "skipped", "not-found"]
+                },
+                "reason": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/explainReason"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "descendants": {
+                    "type": "null"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/explainNote"
+                    }
+                },
+                "ignoreCase": {
+                    "type": "boolean"
+                },
+                "settings": {
+                    "$ref": "#/$defs/settings"
+                }
+            }
+        },
+        "explainGroup": {
+            "type": "object",
+            "required": [
+                "source",
+                "file",
+                "line",
+                "rule",
+                "index",
+                "limit",
+                "count",
+                "entries",
+                "truncated"
+            ],
+            "properties": {
+                "source": {
+                    "$ref": "#/$defs/explainSource"
+                },
+                "file": {
+                    "type": ["string", "null"]
+                },
+                "line": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                },
+                "rule": {
+                    "type": ["string", "null"]
+                },
+                "index": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                },
+                "limit": {
+                    "type": ["number", "string", "null"]
+                },
+                "count": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "The first entries in path order."
+                },
+                "truncated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "skipsExplanation": {
+            "type": "object",
+            "description": "dat explain --json.",
+            "required": [
+                "explainVersion",
+                "root",
+                "totals",
+                "groups",
+                "errors",
+                "notes",
+                "limit",
+                "ignoreCase",
+                "settings"
+            ],
+            "properties": {
+                "explainVersion": {
+                    "const": 1
+                },
+                "root": {
+                    "type": "string"
+                },
+                "totals": {
+                    "type": "object",
+                    "required": [
+                        "excluded",
+                        "filtered",
+                        "depthSkipped",
+                        "symlinks",
+                        "hardlinks",
+                        "errors"
+                    ],
+                    "properties": {
+                        "excluded": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "filtered": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "depthSkipped": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "symlinks": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "hardlinks": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "errors": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/explainGroup"
+                    },
+                    "description": "Largest groups first."
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/scanError"
+                    }
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/explainNote"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ignoreCase": {
+                    "type": "boolean"
+                },
+                "settings": {
+                    "$ref": "#/$defs/settings"
+                }
+            }
+        }
+    }
+}

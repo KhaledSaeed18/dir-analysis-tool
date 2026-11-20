@@ -106,7 +106,7 @@ These rules decide whether a change can be merged. [AGENTS.md](AGENTS.md#product
 
 - **Zero runtime dependencies.** The CLI and the library use Node.js built-ins only.
 - **The core never prints.** `src/core` returns plain data, and everything user-facing happens in `src/cli` and `src/reporters`.
-- **Results are JSON.** What the library returns is exactly what `--format json` prints, so new fields must be serializable and documented in `src/types.ts`.
+- **Results are JSON.** What the library returns is exactly what `--format json` prints, so new fields must be serializable and documented in `src/types.ts` and `report.schema.json`; the tests reject any field a report contains that the schema doesn't declare.
 - **Memory stays bounded.** Anything computed per file during a scan must use constant memory, unless the user opted into a report that lists those files.
 - **Output is deterministic.** Sort by size, then by path with `comparePaths`, never by discovery order.
 - **Stdout is for the report only.** Messages, warnings, and progress go to stderr.
@@ -119,7 +119,7 @@ These rules decide whether a change can be merged. [AGENTS.md](AGENTS.md#product
 1. Fork the repository and create a branch from `main`.
 2. Make the change with tests. Tests create real directory trees with the `fixture()` helper in `test/helpers/fixture.ts`, which are removed after each test; CLI tests call `cli()` from `test/helpers/cli.ts`, which runs the program in-process with captured output. Every bug fix comes with a test that fails without it.
 3. Keep it portable: CI runs the suite on Linux and Windows with Node 22, 24 and 26, and on macOS with Node 22. Keep file names portable and skip symlink or permission cases on Windows with `it.skipIf(isWindows)`.
-4. Update everything the change touches in the same branch: the help text, `src/types.ts`, `schema.json`, the README sections, the agent skill, `AGENTS.md` and this file. The [pull request template](.github/pull_request_template.md) has the full checklist.
+4. Update everything the change touches in the same branch: the help text, `src/types.ts`, `report.schema.json`, `schema.json`, the README sections, the agent skill, `AGENTS.md` and this file. The [pull request template](.github/pull_request_template.md) has the full checklist.
 5. Run `pnpm check`.
 
 ## Agent skill
