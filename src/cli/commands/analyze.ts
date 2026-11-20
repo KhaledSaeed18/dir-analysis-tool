@@ -1,8 +1,9 @@
 import { relative } from 'node:path';
 import type { Command } from '../command.ts';
 import { analyze, type AnalyzeOptions } from '../../core/analyze.ts';
+import { compactAnalysis } from '../../core/compact.ts';
 import { formatBudgetActual } from '../../core/budgets.ts';
-import { escapeControl } from '../../format/text.ts';
+import { escapeControl, stringifyJson } from '../../format/text.ts';
 import { renderAnalysisCsv } from '../../reporters/csv.ts';
 import { renderAnalysisHtml } from '../../reporters/html.ts';
 import { renderAnalysisAs } from '../../reporters/index.ts';
@@ -10,6 +11,7 @@ import type { AnalysisResult } from '../../types.ts';
 import type { Context } from '../context.ts';
 import { ExitCode, terminalWidth } from '../io.ts';
 import {
+    addCompactOption,
     addFileReportOptions,
     addOutputOptions,
     addReportOptions,
@@ -34,6 +36,7 @@ Examples:
                                          enforce budgets in CI (exit code 2 on failure)
   $ dat . -f markdown >> "$GITHUB_STEP_SUMMARY"
   $ dat . --json | jq '.largestFiles[0]'
+  $ dat . -d --compact                   bounded one-line JSON for scripts and agents
   $ dat . --html report.html             self-contained HTML report
 `;
 
@@ -45,6 +48,7 @@ export function registerAnalyze(program: Command, ctx: Context): void {
     addScanOptions(command);
     addReportOptions(command);
     addOutputOptions(command);
+    addCompactOption(command);
     addFileReportOptions(command);
     command.addHelpText('after', EXAMPLES);
     command.action(async (directory: string, _options: unknown, cmd: Command) => {
@@ -114,14 +118,16 @@ export async function emit(
         output = `directory-analysis-${today}.html`;
     }
 
-    const text = renderAnalysisAs(display.format, result, {
-        style: ctx.outputStyle(display.color, output !== undefined),
-        units: display.units,
-        width: terminalWidth(ctx.io),
-        limit,
-        types: display.types,
-        extensions: display.extensions,
-    });
+    const text = display.compact
+        ? stringifyJson(compactAnalysis(result, { limit }))
+        : renderAnalysisAs(display.format, result, {
+              style: ctx.outputStyle(display.color, output !== undefined),
+              units: display.units,
+              width: terminalWidth(ctx.io),
+              limit,
+              types: display.types,
+              extensions: display.extensions,
+          });
     if (output) {
         const file = await ctx.writeFile(output, text);
         ctx.info(

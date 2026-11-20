@@ -14,6 +14,8 @@
 
 export { analyze, DEFAULT_LARGE_FILE_THRESHOLD, DEFAULT_STALE_AGE } from './core/analyze.ts';
 export type { AnalyzeOptions, AnalysisProgress } from './core/analyze.ts';
+export { compactAnalysis } from './core/compact.ts';
+export type { CompactOptions } from './core/compact.ts';
 export { compare } from './core/compare.ts';
 export type { CompareOptions } from './core/compare.ts';
 export {

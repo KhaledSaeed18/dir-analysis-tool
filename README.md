@@ -92,6 +92,7 @@ dat explain -g                        # what a scan skips, and which rule skippe
 dat . -b "size<=200MB" -b "duplicates=0"   # fail CI when a budget is exceeded
 dat . --html report.html              # a self-contained HTML report
 dat . --json | jq '.largestFiles[0]'  # machine-readable output
+dat . -d --compact                    # bounded one-line JSON for scripts and agents
 ```
 
 ## What it shows
@@ -184,17 +185,18 @@ A size tree (`dat src -t --tree-depth 2`):
 
 **Output options:**
 
-| Option                  | Description                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `-f, --format <format>` | `pretty` (default), `json`, `markdown`, `csv`, or `html`.                            |
-| `-j, --json`            | Same as `--format json`.                                                             |
-| `-o, --output <file>`   | Write the report to a file instead of stdout.                                        |
-| `--html [file.html]`    | Also write an HTML report. Default name `directory-analysis-<date>.html`.            |
-| `--csv [file.csv]`      | Also write a CSV export. Default name `directory-analysis.csv`.                      |
-| `--si`                  | Decimal units (kB, MB, powers of 1000) instead of binary (KiB, MiB, powers of 1024). |
-| `--color`, `--no-color` | Force colors on or off. `NO_COLOR` and `FORCE_COLOR` are honored.                    |
-| `--no-progress`         | Hide the progress line. It is only ever drawn on an interactive stderr.              |
-| `-q, --quiet`           | Print only the report and errors.                                                    |
+| Option                  | Description                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `-f, --format <format>` | `pretty` (default), `json`, `markdown`, `csv`, or `html`.                              |
+| `-j, --json`            | Same as `--format json`.                                                               |
+| `--compact`             | One-line JSON with every list cut to `--top` items. See [Compact JSON](#compact-json). |
+| `-o, --output <file>`   | Write the report to a file instead of stdout.                                          |
+| `--html [file.html]`    | Also write an HTML report. Default name `directory-analysis-<date>.html`.              |
+| `--csv [file.csv]`      | Also write a CSV export. Default name `directory-analysis.csv`.                        |
+| `--si`                  | Decimal units (kB, MB, powers of 1000) instead of binary (KiB, MiB, powers of 1024).   |
+| `--color`, `--no-color` | Force colors on or off. `NO_COLOR` and `FORCE_COLOR` are honored.                      |
+| `--no-progress`         | Hide the progress line. It is only ever drawn on an interactive stderr.                |
+| `-q, --quiet`           | Print only the report and errors.                                                      |
 
 ### `dat compare`
 
@@ -399,6 +401,28 @@ JSON is versioned (`"schemaVersion": 3`). Sizes are raw bytes, dates are ISO 860
 }
 ```
 
+### Compact JSON
+
+Large trees can produce very long lists, mostly duplicate groups: 650 KB of JSON for a `node_modules` folder with `-d`. `--compact` (3.4 or later) prints the same document on one line with every list cut to the `--top` value (10 when `--top` is unset or 0), so a script or an agent gets the facts without the bulk. The example above shrinks to 11 KB.
+
+- **Totals stay complete.** `summary`, `types`, `budgets`, and every `count`, `bytes`, `files`, and `wastedBytes` are the same as without `--compact`. Only the item lists are shorter, and they keep their order, so each list is the start of the full one.
+- **Cut lists are named.** A top-level `compact` object says what was left out:
+
+  ```jsonc
+  "compact": {
+    "limit": 10,
+    "truncated": true,
+    "omitted": { "extensions": 44, "duplicates.items": 1679, "errors": 3 }
+  }
+  ```
+
+  `omitted` has an entry only for a list that was cut, with the number of items not listed. A duplicate group whose copies were cut also has `omittedFiles`, and `duplicates.items[].files` in `omitted` is the sum. A missing section means its report was off; `count: 0` with `items: []` means nothing was found.
+
+- **Lists that are cut:** `extensions`, the `items` of `largeFiles`, `duplicates`, `emptyFiles`, `emptyDirectories`, and `staleFiles`, the `files` of each listed duplicate group, and `errors` (counted against `summary.errors`). `largestFiles` and `largestDirectories` follow `--top` as always, and the tree keeps its own `omitted`.
+- **Follow up** with a focused scan when you need more: `dat . -d --compact -n 50` for more items, `dat . -d -n 0 --json | jq .duplicates` for one full section, `dat ./assets -d --compact` for a smaller scope, and `dat explain` for what was skipped.
+
+`--compact` implies `--json` and cannot be combined with another `--format`. Without it, JSON output is unchanged.
+
 Optional sections appear only when their report is on: `largeFiles`, `duplicates`, `emptyFiles`, `emptyDirectories`, `staleFiles`, `tree`, and `budgets`.
 
 ## Configuration
@@ -469,6 +493,7 @@ await writeFile('report.md', renderAnalysisMarkdown(result));
 | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `analyze(path, options?)`                                                             | Analyze a tree. Options mirror the CLI flags: `exclude`, `gitignore`, `maxDepth`, `minSize`, `modifiedAfter`, `top`, `largeFiles`, `duplicates`, `empty`, `stale`, `tree`, `budgets`, `concurrency`, `signal`, `onProgress`, and more. |
 | `compare(left, right, options?)`                                                      | Diff two trees.                                                                                                                                                                                                                        |
+| `compactAnalysis(result, { limit })`                                                  | The `--compact` form of a result: lists cut to `limit`, totals kept, cuts listed in `compact`. Returns a new object.                                                                                                                   |
 | `listDirectories(path, options?)`                                                     | The folders a scan would enter.                                                                                                                                                                                                        |
 | `explainPath(root, path, options?)`, `explainSkips(root, options?)`                   | Why a scan counts or skips one path, and everything a scan skips grouped by rule (`limit` caps listed entries). Render with `renderPathExplanation` and `renderSkipsExplanation`.                                                      |
 | `renderAnalysis`, `renderAnalysisMarkdown`, `renderAnalysisCsv`, `renderAnalysisHtml` | Render a result in any format. `renderComparison*` does the same for comparisons.                                                                                                                                                      |

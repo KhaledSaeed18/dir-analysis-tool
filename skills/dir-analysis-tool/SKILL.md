@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.2 or later (below 4) from npm (installed or through npx); network access is needed only if npx must download it.
 metadata:
   author: Khaled Saeed
-  version: '1.1.0'
+  version: '1.2.0'
   homepage: https://github.com/KhaledSaeed18/dir-analysis-tool
 ---
 
@@ -35,6 +35,7 @@ If Node.js is missing or older than 22.12, stop and tell the user; do not fall b
 ## 2. Ground rules
 
 - **Use `--json` for facts and the pretty report for people.** JSON goes to stdout alone (progress and warnings go to stderr). Sizes in JSON are raw bytes; paths are relative to `root` and use `/`. The pretty report shortens lists to `--top` items (default 10), while JSON always contains every duplicate group and every budget result.
+- **On large trees, prefer `--compact` (3.4 or later)** over trimming JSON yourself with `jq`, `node -e`, or temporary files. It prints one line with every list cut to `--top` items and keeps every total. Read `compact.omitted`: each key is a list that was cut and how many items it left out. If you need more, run a focused follow-up (`-n 50`, a subdirectory, or one section with `--json`). With 3.3 or older, use `--json` and filter it.
 - **Read the exit code.** `0` success, `1` error (bad flag, missing directory), `2` a budget failed (the report is still complete and valid), `130` interrupted.
 - **Know what was skipped.** `.git`, `.hg`, `.svn`, and `node_modules` are skipped by default; `summary.excluded` counts what was skipped. `--all` includes them. `-g` also honors `.gitignore`. `dat explain` (3.3 or later) says what was skipped and which rule skipped it; see section 6.
 - **Quote budget rules and patterns.** `<` and `>` are shell redirections: always write `-b "size<=2MB"`, never `-b size<=2MB`. Quote globs too: `-e '*.map'`.
@@ -84,7 +85,7 @@ dat <dir> -d -g -e 'fixtures/' --json               # skip ignored paths and int
 
 How detection works: only files with equal sizes are compared, large files are pre-filtered by a sample, and every reported group is confirmed by a full SHA-256 hash of the contents. Empty files are never duplicates, and hard links to the same data are not copies. Names do not matter: `final.jpg` and `IMG_0001 copy.jpg` are duplicates when their bytes match, and two files with the same size but different bytes are not.
 
-Read `duplicates` in the JSON: `count` (groups), `wastedBytes` (space freed by keeping one copy of each group), and `items[]` with `bytes`, `wastedBytes`, and `files[]` per group. Add `--top 0` to shorten the rest of the JSON if you only need duplicates.
+Read `duplicates` in the JSON: `count` (groups), `wastedBytes` (space freed by keeping one copy of each group), and `items[]` with `bytes`, `wastedBytes`, and `files[]` per group. Add `--top 0` to shorten the rest of the JSON if you only need duplicates. In a big tree, `dat <dir> -d --compact` lists the 10 groups that waste the most and still gives the full `count` and `wastedBytes`; `compact.omitted["duplicates.items"]` says how many groups were not listed, and a group with `omittedFiles` has more copies than shown. Say so in the report instead of presenting the shown groups as all of them.
 
 Report each group with its file list and the space it wastes, largest first, and the total reclaimable space. Suggest which copy to keep (for example the one under the canonical source folder, not `backup/` or `export/`), and point out duplicates that may be intentional: vendored code, test fixtures, lockfiles, platform-specific copies. Do not remove anything unless asked.
 
