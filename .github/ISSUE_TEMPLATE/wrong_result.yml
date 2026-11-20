@@ -1,0 +1,115 @@
+name: Wrong result
+description: A report is wrong, for example a size, a count, a duplicate, a skipped path or a budget.
+title: '[result] <command>: '
+labels: [wrong-result]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. A wrong number fails a budget for no reason or hides real waste, so these reports matter most.
+
+        `dat explain <path>` shows which rule counted or skipped a path; its output helps here too.
+
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      # Pinned to the commands the CLI registers (src/cli/program.ts) by test/repo/community.test.ts.
+      options:
+        - analyze
+        - compare
+        - explain
+        - watch
+        - init
+    validations:
+      required: true
+
+  - type: dropdown
+    id: section
+    attributes:
+      label: What is wrong
+      options:
+        - The total size, disk size or counts
+        - The largest folders or files
+        - File types or extensions
+        - Duplicates (a false match, or a missed one)
+        - Large, empty or stale files
+        - What was skipped (default excludes, patterns, .gitignore)
+        - A budget
+        - Added, removed or changed files in a comparison
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-line
+    attributes:
+      label: Command line
+      description: The exact command you ran, and the config file if one was used.
+      placeholder: npx dir-analysis-tool@latest . -g -d
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: layout
+    attributes:
+      label: Directory layout
+      description: The smallest layout that shows it, for example the output of `find . -ls | head -n 20`, and any `.gitignore` involved. Rename anything private.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: JSON report
+      description: The same command with `--json` (or `--compact` for a large tree).
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What the right result is, and how you checked it
+      description: For example the output of `du -sh`, `git check-ignore -v <path>` or `shasum`.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: dir-analysis-tool version
+      description: Output of `dat --version`.
+      placeholder: 3.4.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: filesystem
+    attributes:
+      label: File system
+      description: Optional. For example APFS, ext4, NTFS or a network drive; it matters for sizes on disk, hard links and case.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I reproduced this with the latest dir-analysis-tool release.
+          required: true
+        - label: I searched existing issues.
+          required: true
