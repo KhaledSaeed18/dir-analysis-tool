@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.4.1...v3.5.0) (2026-11-20)
+
+### Features
+
+* ship a JSON Schema for every JSON report ([853d6d2](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/853d6d2f30cb5bb0f4edfa84fbf01ff40742a4b2))
+
 ## [3.4.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.4.0...v3.4.1) (2026-11-20)
 
 ### Bug Fixes
