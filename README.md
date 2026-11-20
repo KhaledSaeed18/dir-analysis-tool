@@ -55,6 +55,7 @@ npx dir-analysis-tool
 - [Agent skill](#agent-skill)
 - [How it works](#how-it-works)
 - [Exit codes](#exit-codes)
+- [Stability](#stability)
 - [Migrating from v2](#migrating-from-v2)
 - [FAQ](#faq)
 
@@ -548,6 +549,16 @@ The benchmark script reports scan and duplicate timings plus process peak RSS (n
 | `1`   | Error: invalid option or config, missing directory, and so on |
 | `2`   | A budget failed                                               |
 | `130` | Interrupted (Ctrl+C)                                          |
+
+## Stability
+
+dir-analysis-tool follows semantic versioning, and these hold for every 3.x release:
+
+- **Commands, options and exit codes.** Commands, options, budget metrics, config keys and exit codes stay as they are. New ones may be added, and old spellings that still work keep working.
+- **JSON.** `schemaVersion` stays `3`, and `dat explain --json` keeps `explainVersion: 1`. Fields are only added, never removed, renamed or given a new type, and [`report.schema.json`](https://unpkg.com/dir-analysis-tool@3/report.schema.json) describes every one. Validate against it, and allow fields you don't know.
+- **Library.** Exports keep their names and signatures; options and result fields are only added.
+- **What a number means.** A metric keeps its definition (`bytes` is the apparent size, `diskBytes` the allocated size, hard links count once). A release that fixes a wrong count is a patch, and the changelog says what changed.
+- **Not covered.** The wording and layout of the pretty, Markdown and HTML reports, and of messages on stderr, are for people and may change. CSV keeps its columns and only adds new ones at the end. Scripts should read `--json`.
 
 ## Migrating from v2
 
