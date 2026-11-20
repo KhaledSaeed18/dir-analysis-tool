@@ -55,6 +55,8 @@ export interface DuplicateGroup {
     /** Space reclaimable by keeping one copy: `bytes * (files.length - 1)`. */
     wastedBytes: number;
     files: string[];
+    /** Copies not listed in `files`; present only on a group cut by compact output. */
+    omittedFiles?: number;
 }
 
 export interface ItemList<T> {
@@ -170,6 +172,31 @@ export interface AnalysisResult {
     budgets?: BudgetResult[];
     /** At most 100 entries; `summary.errors` has the full count. */
     errors: ScanError[];
+    /** Present only in compact output (`--compact`, `compactAnalysis`): what was cut. */
+    compact?: CompactInfo;
+}
+
+/** Lists that compact output can cut, named by their JSON path. */
+export type CompactList =
+    | 'extensions'
+    | 'errors'
+    | 'largeFiles.items'
+    | 'duplicates.items'
+    | 'duplicates.items[].files'
+    | 'emptyFiles.items'
+    | 'emptyDirectories.items'
+    | 'staleFiles.items';
+
+export interface CompactInfo {
+    /** Maximum number of items kept in each list. */
+    limit: number;
+    /** Whether any list was cut. */
+    truncated: boolean;
+    /**
+     * Items not listed, per cut list, in document order. A list that is absent
+     * here was not cut. `duplicates.items[].files` is the sum over listed groups.
+     */
+    omitted: Partial<Record<CompactList, number>>;
 }
 
 export interface ChangedFile {

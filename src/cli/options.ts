@@ -1,6 +1,6 @@
 import { InvalidArgumentError, Option, type Command } from './command.ts';
 import type { DatConfig } from '../config/schema.ts';
-import { errorMessage } from '../errors.ts';
+import { DatError, errorMessage } from '../errors.ts';
 import type { AnalyzeOptions } from '../core/analyze.ts';
 import { parseBudget } from '../core/budgets.ts';
 import type { ScanSettings } from '../core/options.ts';
@@ -232,6 +232,17 @@ export function addOutputOptions(command: Command, formats: readonly Format[] = 
         .addOption(option('-q, --quiet', 'print only the report and errors', OUTPUT_GROUP));
 }
 
+/** Bounded JSON for scripts and agents. Analyze only. */
+export function addCompactOption(command: Command): Command {
+    return command.addOption(
+        option(
+            '--compact',
+            'print one-line JSON with every list cut to --top items (implies --json)',
+            OUTPUT_GROUP
+        )
+    );
+}
+
 /** Legacy file outputs kept from v2: they write a file in addition to the normal output. */
 export function addFileReportOptions(command: Command): Command {
     return command
@@ -340,13 +351,20 @@ export interface DisplaySettings {
     extensions: boolean;
     html: string | true | undefined;
     csv: string | true | undefined;
+    /** Bounded one-line JSON (`--compact`, analyze only). */
+    compact: boolean;
 }
 
 export function resolveDisplay(cli: Record<string, unknown>, config: DatConfig): DisplaySettings {
-    const format =
-        cli['json'] === true ? 'json' : (FORMATS.find((f) => f === cli['format']) ?? 'pretty');
+    const compact = cli['compact'] === true;
+    const requested = FORMATS.find((f) => f === cli['format']);
+    if (compact && requested !== undefined && requested !== 'json') {
+        throw new DatError(`--compact prints JSON; remove --format ${requested}.`);
+    }
+    const format = cli['json'] === true || compact ? 'json' : (requested ?? 'pretty');
     return {
         format,
+        compact,
         output: read.string(cli['output']),
         units: cli['si'] === true ? 'si' : (config.units ?? 'iec'),
         color: read.boolean(cli['color']),

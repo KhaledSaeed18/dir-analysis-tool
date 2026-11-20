@@ -22,6 +22,19 @@
 
 `--top <n>` limits `largestDirectories` and `largestFiles` (and the lists in the pretty report). It does not limit `duplicates.items` or `budgets`.
 
+## Compact output (3.4 or later)
+
+`dat <dir> --compact` prints the same document on one line, with every list cut to `--top` items (10 when `--top` is unset or 0) and a top-level `compact` object:
+
+| Field                             | Contents                                                                                                                                                                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `compact.limit`                   | Items kept per list                                                                                                                                                                                                                                    |
+| `compact.truncated`               | `true` if any list was cut                                                                                                                                                                                                                             |
+| `compact.omitted`                 | Only the lists that were cut, with how many items were left out: `extensions`, `errors`, `largeFiles.items`, `duplicates.items`, `duplicates.items[].files` (sum over listed groups), `emptyFiles.items`, `emptyDirectories.items`, `staleFiles.items` |
+| `duplicates.items[].omittedFiles` | Copies of that group not listed in `files`                                                                                                                                                                                                             |
+
+Totals (`summary`, every `count`, `bytes`, `files`, `wastedBytes`) and `budgets` are never cut. `--compact` implies `--json`.
+
 ## One-liners
 
 `node` is always available where `dat` runs, so these use it; `jq` equivalents are shown where they are shorter.
@@ -37,6 +50,9 @@ dat . --all -t --tree-depth 1 -n 30 --json | jq -r '.tree.children[] | "\(.bytes
 # Duplicate groups, largest waste first, and the total
 dat . -d -n 0 --json | jq -r '.duplicates.items[] | "\(.wastedBytes)\t\(.files | join(" | "))"'
 dat . -d -n 0 --json | jq '.duplicates.wastedBytes'
+
+# Bounded output for a big tree, and what it left out
+dat . -d --compact | jq '{groups: .duplicates.count, wasted: .duplicates.wastedBytes, omitted: .compact.omitted}'
 
 # Budget results; the exit code is 2 when any rule fails
 dat dist -b "size<=2MB" -b "largest<500kB" -n 0 --json | jq -c '.budgets[] | {rule, actual, limit, passed}'

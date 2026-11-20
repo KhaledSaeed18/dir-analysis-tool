@@ -6,6 +6,7 @@
 - **Duplicate assets:** byte-identical files, grouped, with the space they waste and which copy to keep.
 - **Size budgets:** whether a build output meets limits such as `size<=2MB` or `largest<=500kB`, and a ready-to-use CI step.
 - **What was skipped:** which default, pattern, or `.gitignore` line left a path out, with `dat explain` (CLI 3.3 or later).
+- **Large trees:** bounded one-line JSON with `--compact` (CLI 3.4 or later), so the agent reads totals and the top items instead of trimming huge output itself.
 
 The skill drives the published CLI, version 3.2 or later (`dir-analysis-tool`, or `npx "dir-analysis-tool@^3.2"`), reads its JSON output, and never deletes files. It is a plain `SKILL.md` with one reference file, so it works in any agent that supports the Agent Skills format.
 
