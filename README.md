@@ -550,6 +550,8 @@ The benchmark script reports scan and duplicate timings plus process peak RSS (n
 | `2`   | A budget failed                                               |
 | `130` | Interrupted (Ctrl+C)                                          |
 
+A reader that stops early (`dat . --json | head`) doesn't change the exit code: a failed budget still exits `2`.
+
 ## Stability
 
 dir-analysis-tool follows semantic versioning, and these hold for every 3.x release:

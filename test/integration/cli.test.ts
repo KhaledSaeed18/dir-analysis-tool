@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -275,6 +275,49 @@ describe('dat (meta)', () => {
         const result = await cli([root], { signal: controller.signal });
         expect(result.code).toBe(130);
         expect(result.stderr).toContain('interrupted');
+    });
+
+    describe('when the reader closes stdout early (| head, | true)', () => {
+        const main = join(import.meta.dirname, '../../src/cli/main.ts');
+        /** Runs the real process with its stdout closed before it writes, like `dat ... | true`. */
+        const closedStdout = (args: string[]): Promise<{ code: number | null; stderr: string }> =>
+            new Promise((resolve, reject) => {
+                const child = spawn(process.execPath, [main, ...args], {
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                });
+                child.stdout.destroy();
+                let stderr = '';
+                child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+                child.on('error', reject);
+                child.on('close', (code) => resolve({ code, stderr }));
+            });
+
+        it('keeps exit code 2 for a failed budget', async () => {
+            const files = Object.fromEntries(
+                Array.from({ length: 50 }, (_, i) => [`f${i}.txt`, 'x'])
+            );
+            const root = await fixture(files);
+            for (const args of [
+                [root, '-b', 'size<1B', '-j', '-n', '1000'],
+                [root, '-b', 'size<1B'],
+            ]) {
+                const result = await closedStdout([...args, '--no-config']);
+                expect(result.code).toBe(2);
+                expect(result.stderr).not.toMatch(/EPIPE|error/i);
+            }
+        });
+
+        it('exits 0 for a passing run and 1 for an error', async () => {
+            const root = await fixture({ 'a.txt': 'x' });
+            expect((await closedStdout([root, '-j', '--no-config'])).code).toBe(0);
+            expect((await closedStdout([join(root, 'missing'), '--no-config'])).code).toBe(1);
+        });
+
+        it('stops watching once nobody reads the reports', async () => {
+            const root = await fixture({ 'a.txt': 'x' });
+            const result = await closedStdout(['watch', root, '--json', '--no-config']);
+            expect(result.code).toBe(0);
+        });
     });
 
     it('runs as a real process and exits cleanly when the pipe closes early', async () => {

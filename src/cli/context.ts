@@ -4,7 +4,7 @@ import { loadConfig, type LoadedConfig } from '../config/load.ts';
 import { createStyle, supportsColor, type Style } from '../format/style.ts';
 import { escapeControlInLines } from '../format/text.ts';
 import type { CliIO } from './io.ts';
-import { write } from './io.ts';
+import { isClosed, write } from './io.ts';
 
 /** Shared state for one CLI invocation. */
 export class Context {
@@ -55,5 +55,10 @@ export class Context {
 
     stdout(text: string): Promise<void> {
         return write(this.io.stdout, text);
+    }
+
+    /** True once the reader of stdout went away (`dat watch --json | head -1`). */
+    get stdoutClosed(): boolean {
+        return isClosed(this.io.stdout);
     }
 }

@@ -1,15 +1,11 @@
 #!/usr/bin/env node
-import { errorCode } from '../errors.ts';
-import { processIO } from './io.ts';
+import { ignoreClosedPipe, processIO } from './io.ts';
 import { run } from './program.ts';
 
-// `dat --json | head` closes the pipe early; that is not an error.
-for (const stream of [process.stdout, process.stderr]) {
-    stream.on('error', (error: Error) => {
-        if (errorCode(error) === 'EPIPE') process.exit(0);
-        throw error;
-    });
-}
+// `dat --json | head` closes the pipe early. That is not an error, and it must not change the exit
+// code either: a failed budget still exits 2, so a CI step that pipes the report still fails.
+ignoreClosedPipe(process.stdout);
+ignoreClosedPipe(process.stderr);
 
 // The first Ctrl+C cancels gracefully (progress line cleared, exit code 130); a second one forces exit.
 const controller = new AbortController();
