@@ -98,7 +98,7 @@
                     "pattern": "^\\s*(\\d+(\\.\\d+)?|\\.\\d+)\\s*([kKmMgGtTpP]([iI]?[bB])?|[bB])?\\s*$"
                 }
             ],
-            "description": "Report files at least this large; true uses 100 MiB. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\".",
+            "description": "Report files at least this large; true uses 100 MiB. Bytes, or a size such as \"512k\", \"25MiB\", or \"1GB\". A number without a unit is bytes here, while the -l flag reads it as MiB.",
             "examples": [
                 "50MB"
             ]

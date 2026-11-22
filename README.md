@@ -465,6 +465,8 @@ The `$schema` line gives you autocompletion and validation in most editors. Ever
 | `units`                  | `"iec"` or `"si"`       | `"iec"`   | `--si`                         |
 | `budgets`                | `string[]`              | `[]`      | `--budget`                     |
 
+A size without a unit is bytes in the config, as in the table above: `"largeFiles": 15` is 15 bytes, while `-l 15` on the command line still means 15 MiB, as it did in v2. Write the unit (`"largeFiles": "15MiB"`); dat warns about a `largeFiles` without a unit below 1 MiB, and `dat init` asks for a unit.
+
 Invalid values stop the run with a precise message. Unknown keys produce a warning. Config files from v1 and v2 still work: their keys are translated, with a deprecation warning.
 
 ## Library API

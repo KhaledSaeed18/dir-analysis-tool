@@ -97,7 +97,7 @@ export const CONFIG_FIELDS: Readonly<Record<keyof DatConfig, Field>> = {
     },
     largeFiles: {
         type: { kind: 'size', allowBoolean: true },
-        description: `Report files at least this large; true uses 100 MiB. ${SIZE_HINT}`,
+        description: `Report files at least this large; true uses 100 MiB. ${SIZE_HINT} A number without a unit is bytes here, while the -l flag reads it as MiB.`,
         examples: ['50MB'],
     },
     duplicates: { type: { kind: 'boolean' }, description: 'Find files with identical contents.' },
@@ -188,6 +188,9 @@ export function validateConfig(raw: unknown): ValidationResult {
     const input: Record<string, unknown> = Object.fromEntries(Object.entries(raw));
     delete input['$schema'];
 
+    // v1's largeSizeThreshold was bytes on purpose; only a largeFiles written as such is checked.
+    const largeFilesWritten = 'largeFiles' in input;
+
     // A v2 "maxDepth: -1" meant unlimited.
     if (input['maxDepth'] === -1) delete input['maxDepth'];
 
@@ -215,8 +218,28 @@ export function validateConfig(raw: unknown): ValidationResult {
         if (problem) errors.push(`"${key}" ${problem}`);
         else config[key] = value;
     }
+    const small = largeFilesWritten ? smallUnitlessSize(config['largeFiles']) : null;
+    if (small !== null) {
+        warnings.push(
+            `"largeFiles": ${JSON.stringify(config['largeFiles'])} is ${small} ${small === 1 ? 'byte' : 'bytes'}: a size without a unit is bytes in the config, unlike -l ${small}, which means ${small} MiB. Write "${small}MiB" if you meant MiB, or add a unit to silence this warning.`
+        );
+    }
     // Every value was checked against CONFIG_FIELDS above.
     return { config, warnings, errors };
+}
+
+/**
+ * The byte count of a unitless size below 1 MiB, which is more likely a v2-style MiB count
+ * (`-l 15`) than a deliberate byte threshold for "large" files; null otherwise.
+ */
+function smallUnitlessSize(value: unknown): number | null {
+    const bytes =
+        typeof value === 'number'
+            ? value
+            : typeof value === 'string' && /^\s*(\d+(\.\d+)?|\.\d+)\s*$/.test(value)
+              ? Number(value)
+              : null;
+    return bytes !== null && bytes > 0 && bytes < 1024 ** 2 ? bytes : null;
 }
 
 function checkValue(type: FieldType, value: unknown): string | null {

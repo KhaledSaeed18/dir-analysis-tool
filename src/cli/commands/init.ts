@@ -90,7 +90,7 @@ async function ask(ctx: Context, confirmOverwrite: boolean): Promise<DatConfig |
             await p.text({
                 message: 'Report files at least this large (leave empty to skip)',
                 placeholder: '100MiB',
-                validate: (value) => validateWith(value, parseSize),
+                validate: (value) => validateWith(value, parseSizeWithUnit),
             })
         );
         const duplicates = bail(
@@ -144,6 +144,19 @@ async function ask(ctx: Context, confirmOverwrite: boolean): Promise<DatConfig |
 }
 
 class CancelledError extends Error {}
+
+/**
+ * A size for the config file, which reads a number without a unit as bytes while `-l 15` reads
+ * it as MiB. The answer must say which, so that "15" can't silently mean 15 bytes.
+ */
+function parseSizeWithUnit(value: string): number {
+    if (/^(\d+(\.\d+)?|\.\d+)$/.test(value)) {
+        throw new RangeError(
+            `Add a unit: ${value}MiB (what -l ${value} means) or ${value}MB. Without one, the config reads ${value} as bytes.`
+        );
+    }
+    return parseSize(value);
+}
 
 function splitList(value: string): string[] {
     return value
