@@ -581,6 +581,7 @@ v3 is a rewrite with a new output format. Most commands keep working unchanged.
 | `dist/`, `build/`, `.cache/` excluded by default                            | Only `.git`, `.hg`, `.svn`, and `node_modules` are; use `--gitignore` or `-e` for more          |
 | Sizes in decimal units (`MB`)                                               | Binary units by default (`MiB`); `--si` switches to decimal                                     |
 | Config keys `excludePatterns`, `topN`, `largeSizeThresholdMB`, …            | `exclude`, `top`, `largeFiles`, …, read with a deprecation warning                              |
+| `"maxDepth": -1` for unlimited depth                                        | Leave `maxDepth` out. `-1` still means unlimited, with a deprecation warning                    |
 
 ## FAQ
 

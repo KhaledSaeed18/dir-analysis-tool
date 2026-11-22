@@ -35,7 +35,7 @@
         "maxDepth": {
             "type": "integer",
             "minimum": 0,
-            "description": "Directory levels to descend; 0 scans only the top-level files. Default: unlimited."
+            "description": "Directory levels to descend; 0 scans only the top-level files. Default: unlimited (leave it out; the v2 value -1 still works, with a deprecation warning)."
         },
         "followSymlinks": {
             "type": "boolean",

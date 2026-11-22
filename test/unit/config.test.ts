@@ -80,8 +80,12 @@ describe('validateConfig', () => {
             top: 3,
             empty: true,
         });
-        expect(result.warnings).toHaveLength(9);
+        expect(result.warnings).toHaveLength(10);
         expect(result.warnings).toContain('unknown key "mystery" ignored');
+        // Accepted for v2 compatibility, but no longer silently (#24).
+        expect(result.warnings).toContain(
+            '"maxDepth": -1 is deprecated; leave maxDepth out for unlimited depth'
+        );
     });
 
     it('maps the v1 byte threshold', () => {

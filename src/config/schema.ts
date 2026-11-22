@@ -64,7 +64,7 @@ export const CONFIG_FIELDS: Readonly<Record<keyof DatConfig, Field>> = {
     maxDepth: {
         type: { kind: 'integer', min: 0 },
         description:
-            'Directory levels to descend; 0 scans only the top-level files. Default: unlimited.',
+            'Directory levels to descend; 0 scans only the top-level files. Default: unlimited (leave it out; the v2 value -1 still works, with a deprecation warning).',
     },
     followSymlinks: {
         type: { kind: 'boolean' },
@@ -191,8 +191,11 @@ export function validateConfig(raw: unknown): ValidationResult {
     // v1's largeSizeThreshold was bytes on purpose; only a largeFiles written as such is checked.
     const largeFilesWritten = 'largeFiles' in input;
 
-    // A v2 "maxDepth: -1" meant unlimited.
-    if (input['maxDepth'] === -1) delete input['maxDepth'];
+    // A v2 "maxDepth: -1" meant unlimited. It still does, so 3.x keeps accepting those configs.
+    if (input['maxDepth'] === -1) {
+        delete input['maxDepth'];
+        warnings.push('"maxDepth": -1 is deprecated; leave maxDepth out for unlimited depth');
+    }
 
     for (const [key, translate] of Object.entries(LEGACY_KEYS)) {
         if (!(key in input)) continue;

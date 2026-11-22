@@ -79,6 +79,14 @@ describe('dat (analyze)', () => {
         expect(json<AnalysisResult>(flag).largeFiles?.threshold).toBe(15 * 1024 ** 2);
     });
 
+    it('still reads a v2 "maxDepth": -1 as unlimited, with a deprecation warning (#24)', async () => {
+        const root = await fixture({ '.dir-analyzer.json': '{"maxDepth":-1}', 'a/b/c/d.txt': 'x' });
+        const result = await cli([root, '--json']);
+        expect(result.code).toBe(0);
+        expect(json<AnalysisResult>(result).summary.files).toBe(2);
+        expect(result.stderr).toMatch(/warning .*"maxDepth": -1 is deprecated/);
+    });
+
     it('rejects a config date without a unit (#17)', async () => {
         const root = await fixture({ '.dir-analyzer.json': '{"stale":"12"}', 'a.txt': 'x' });
         const result = await cli([root]);
