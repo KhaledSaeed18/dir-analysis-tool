@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.5.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.0...v3.5.1) (2026-11-22)
+
+### Bug Fixes
+
+* accept only documented ages and dates in date filters ([61ef02c](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/61ef02c2e2e1f4d5ca0bf319cc2a7d7606351465)), closes [#17](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/17)
+* **cli:** keep the exit code when the reader closes stdout early ([78e00f7](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/78e00f7e7fe2f329651c05144bab3ca64c090a25)), closes [#27](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/27)
+* **config:** stop unitless large-file sizes from meaning bytes by accident ([6efa273](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/6efa2733cf68aef60e3446dde10b7e52dde72862)), closes [#23](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/23)
+* **config:** warn about the deprecated "maxDepth": -1 ([f973b1f](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/f973b1f8686dad88800ad89982602ed64035c5e7)), closes [#24](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/24)
+
 ## [3.5.0](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.4.1...v3.5.0) (2026-11-20)
 
 ### Features
