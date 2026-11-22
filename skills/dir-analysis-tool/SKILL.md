@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.2 or later (below 4) from npm (installed or through npx); network access is needed only if npx must download it.
 metadata:
   author: Khaled Saeed
-  version: '1.2.0'
+  version: '1.2.1'
   homepage: https://github.com/KhaledSaeed18/dir-analysis-tool
 ---
 
@@ -39,7 +39,7 @@ If Node.js is missing or older than 22.12, stop and tell the user; do not fall b
 - **Read the exit code.** `0` success, `1` error (bad flag, missing directory), `2` a budget failed (the report is still complete and valid), `130` interrupted.
 - **Know what was skipped.** `.git`, `.hg`, `.svn`, and `node_modules` are skipped by default; `summary.excluded` counts what was skipped. `--all` includes them. `-g` also honors `.gitignore`. `dat explain` (3.3 or later) says what was skipped and which rule skipped it; see section 6.
 - **Quote budget rules and patterns.** `<` and `>` are shell redirections: always write `-b "size<=2MB"`, never `-b size<=2MB`. Quote globs too: `-e '*.map'`.
-- **Mind the units.** `kB`, `MB`, `GB` are powers of 1000; `KiB`, `MiB`, `k`, `M` are powers of 1024. Reports use binary units unless you pass `--si`. Quote the user's unit back to them.
+- **Mind the units.** `kB`, `MB`, `GB` are powers of 1000; `KiB`, `MiB`, `k`, `M` are powers of 1024. Reports use binary units unless you pass `--si`. Quote the user's unit back to them. Give ages a unit too (`--stale 6mo`, `--older-than 30d`); a bare number is not an age. In `.dir-analyzer.json`, a size without a unit is bytes (`"largeFiles": 15` is 15 bytes), so write `"15MiB"`.
 - **Never delete, move, or rewrite files on your own.** Report findings and proposed actions; act only on an explicit request, and only on the paths the user approved.
 - **Report numbers with their scope**: the directory, the flags used (for example "excluding `.git` and `node_modules`"), and whether sizes are apparent size or on-disk size.
 
