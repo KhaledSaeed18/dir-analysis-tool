@@ -52,6 +52,20 @@ describe('dat init (interactive)', () => {
         });
     });
 
+    it('asks for a unit instead of writing a bare large-file size (#23)', async () => {
+        const root = await fixture({});
+        const result = await cli(['init', root], {
+            stdinTTY: true,
+            stdin: answers('', 'n', '15', '15MiB', 'n', '10', ''),
+        });
+        expect(result.code).toBe(0);
+        expect(result.stdout).toContain('Add a unit: 15MiB (what -l 15 means) or 15MB.');
+        const config = JSON.parse(await readFile(join(root, '.dir-analyzer.json'), 'utf8')) as {
+            largeFiles?: unknown;
+        };
+        expect(config.largeFiles).toBe('15MiB');
+    });
+
     it('asks before overwriting, and writes nothing when cancelled', async () => {
         const root = await fixture({});
         const file = join(root, '.dir-analyzer.json');

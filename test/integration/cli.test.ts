@@ -70,6 +70,15 @@ describe('dat (analyze)', () => {
         expect(Math.abs(Date.now() - staleBefore - 31_556_952_000)).toBeLessThan(60_000);
     });
 
+    it('reads a config largeFiles number as bytes, and warns when it looks like MiB (#23)', async () => {
+        const root = await fixture({ '.dir-analyzer.json': '{"largeFiles":15}', 'a.txt': 'x' });
+        const result = await cli([root, '--json']);
+        expect(json<AnalysisResult>(result).largeFiles?.threshold).toBe(15);
+        expect(result.stderr).toMatch(/warning .*"largeFiles": 15 is 15 bytes/);
+        const flag = await cli([root, '-l', '15', '--no-config', '--json']);
+        expect(json<AnalysisResult>(flag).largeFiles?.threshold).toBe(15 * 1024 ** 2);
+    });
+
     it('rejects a config date without a unit (#17)', async () => {
         const root = await fixture({ '.dir-analyzer.json': '{"stale":"12"}', 'a.txt': 'x' });
         const result = await cli([root]);

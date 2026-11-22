@@ -88,6 +88,21 @@ describe('validateConfig', () => {
         expect(validateConfig({ largeSizeThreshold: 5000 }).config).toEqual({ largeFiles: 5000 });
     });
 
+    it('warns when largeFiles without a unit is small enough to be a MiB count (#23)', () => {
+        for (const largeFiles of [15, '15', ' 100 ', 0.5]) {
+            const result = validateConfig({ largeFiles });
+            // The value keeps its documented meaning: bytes.
+            expect(result.config).toEqual({ largeFiles });
+            expect(result.errors).toEqual([]);
+            expect(result.warnings).toHaveLength(1);
+            expect(result.warnings[0]).toMatch(/is [\d.]+ bytes?: a size without a unit is bytes/);
+        }
+        expect(validateConfig({ largeFiles: 15 }).warnings[0]).toContain('Write "15MiB"');
+        for (const largeFiles of ['15MiB', '15MB', 2 * 1024 ** 2, '1048576', true, 0]) {
+            expect(validateConfig({ largeFiles }).warnings).toEqual([]);
+        }
+    });
+
     it('rejects non-objects', () => {
         expect(validateConfig([]).errors).toHaveLength(1);
         expect(validateConfig(null).errors).toHaveLength(1);
