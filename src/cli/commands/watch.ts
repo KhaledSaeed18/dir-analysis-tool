@@ -113,6 +113,12 @@ export function registerWatch(program: Command, ctx: Context): void {
             );
         };
 
+        // Ends the watch when the reader of stdout goes away (`dat watch --json | head -1`). Only a
+        // stream that was written to can be found closed, so reports written with -o never end it.
+        let stopWatching = (): void => {};
+        const stopped = new Promise<void>((resolve) => (stopWatching = resolve));
+        const readerGone = (): boolean => ctx.stdoutClosed;
+
         let watcher: TreeWatcher | null = null;
         const run = async (): Promise<void> => {
             if (running) {
@@ -134,6 +140,10 @@ export function registerWatch(program: Command, ctx: Context): void {
                         fingerprint(previous) !== fingerprint(result)
                     ) {
                         await render(result);
+                        if (readerGone()) {
+                            stopWatching();
+                            break;
+                        }
                     }
                     previous = result;
                     changes = 0;
@@ -159,7 +169,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         };
 
         await run();
-        if (signal?.aborted) return;
+        if (signal?.aborted || readerGone()) return;
 
         let poller: NodeJS.Timeout | null = null;
         const startPolling = (seconds: number): void => {
@@ -185,11 +195,14 @@ export function registerWatch(program: Command, ctx: Context): void {
             watcher.sync(watcher.recursive ? [] : await listDirectories(target, options));
         }
 
-        await new Promise<void>((resolve) => {
-            if (!signal) return; // without a signal the process runs until killed
-            if (signal.aborted) resolve();
-            signal.addEventListener('abort', () => resolve(), { once: true });
-        });
+        await Promise.race([
+            stopped,
+            new Promise<void>((resolve) => {
+                if (!signal) return; // without a signal the process runs until killed or stopped
+                if (signal.aborted) resolve();
+                signal.addEventListener('abort', () => resolve(), { once: true });
+            }),
+        ]);
         if (timer) clearTimeout(timer);
         if (poller) clearInterval(poller);
         watcher?.close();
