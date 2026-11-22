@@ -73,11 +73,11 @@
         },
         "newerThan": {
             "type": "string",
-            "description": "Only include files modified after this point. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD)."
+            "description": "Only include files modified after this point. An age with a unit such as \"30d\", \"6mo\", or \"1y\", a date (YYYY-MM-DD), or an ISO 8601 timestamp such as \"2024-01-31T10:00:00Z\"."
         },
         "olderThan": {
             "type": "string",
-            "description": "Only include files modified before this point. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD)."
+            "description": "Only include files modified before this point. An age with a unit such as \"30d\", \"6mo\", or \"1y\", a date (YYYY-MM-DD), or an ISO 8601 timestamp such as \"2024-01-31T10:00:00Z\"."
         },
         "top": {
             "type": "integer",
@@ -133,7 +133,7 @@
                     "type": "string"
                 }
             ],
-            "description": "Report files not modified since this point; true uses one year. An age such as \"30d\", \"6mo\", or \"1y\", or a date (YYYY-MM-DD).",
+            "description": "Report files not modified since this point; true uses one year. An age with a unit such as \"30d\", \"6mo\", or \"1y\", a date (YYYY-MM-DD), or an ISO 8601 timestamp such as \"2024-01-31T10:00:00Z\".",
             "examples": [
                 "2y"
             ]

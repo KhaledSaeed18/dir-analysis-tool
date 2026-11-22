@@ -16,6 +16,11 @@ describe('normalizeArgv', () => {
         expect(normalizeArgv(['--csv', 'dir'])).toEqual(['--csv=', 'dir']);
     });
 
+    it('keeps a number after --stale attached, so it is reported as a value without a unit', () => {
+        expect(normalizeArgv(['--stale', '12', 'photos'])).toEqual(['--stale', '12', 'photos']);
+        expect(normalizeArgv(['--stale', '2024-1-5'])).toEqual(['--stale', '2024-1-5']);
+    });
+
     it('leaves flags followed by options, and everything after --, untouched', () => {
         expect(normalizeArgv(['-l', '-d'])).toEqual(['-l', '-d']);
         expect(normalizeArgv(['-l'])).toEqual(['-l']);

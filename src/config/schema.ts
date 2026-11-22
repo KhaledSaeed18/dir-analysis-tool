@@ -43,7 +43,8 @@ interface Field {
 }
 
 const SIZE_HINT = 'Bytes, or a size such as "512k", "25MiB", or "1GB".';
-const TIME_HINT = 'An age such as "30d", "6mo", or "1y", or a date (YYYY-MM-DD).';
+const TIME_HINT =
+    'An age with a unit such as "30d", "6mo", or "1y", a date (YYYY-MM-DD), or an ISO 8601 timestamp such as "2024-01-31T10:00:00Z".';
 
 /** Single source of truth for config validation, docs, and `schema.json`. */
 export const CONFIG_FIELDS: Readonly<Record<keyof DatConfig, Field>> = {

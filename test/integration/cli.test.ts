@@ -52,6 +52,31 @@ describe('dat (analyze)', () => {
         expect(result.stderr).toContain('read as 1 MiB');
     });
 
+    it('reports a bare number after --stale as a missing unit, not as a date in 2001 (#17)', async () => {
+        const root = await fixture({ 'photos/a.jpg': 'x' });
+        const result = await cli(['--stale', '12', 'photos', '--no-config'], { cwd: root });
+        expect(result.code).toBe(1);
+        expect(result.stderr).toMatch(/needs a unit.*12mo/);
+        expect(result.stdout).toBe('');
+    });
+
+    it('reads a folder named like a number after --stale as the directory', async () => {
+        const root = await fixture({ '2024/a.txt': 'x' });
+        const result = await cli(['--stale', '2024', '--json', '--no-config'], { cwd: root });
+        const report = json<AnalysisResult>(result);
+        expect(report.root).toBe(join(root, '2024'));
+        // The default age of one year, not 2024-01-01.
+        const staleBefore = Date.parse(report.staleFiles!.modifiedBefore);
+        expect(Math.abs(Date.now() - staleBefore - 31_556_952_000)).toBeLessThan(60_000);
+    });
+
+    it('rejects a config date without a unit (#17)', async () => {
+        const root = await fixture({ '.dir-analyzer.json': '{"stale":"12"}', 'a.txt': 'x' });
+        const result = await cli([root]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toMatch(/"stale" is invalid: .*needs a unit/);
+    });
+
     it('applies file exclusions (broken in v2)', async () => {
         const root = await fixture({ 'a.log': 'x', 'b.txt': 'x', 'logs/c.log': 'x' });
         const result = await cli([root, '-e', '*.log', '--json']);
@@ -64,6 +89,10 @@ describe('dat (analyze)', () => {
         ['-l', '5 parsecs'],
         ['--min-size', 'big'],
         ['--newer-than', 'whenever'],
+        ['--older-than', '12'],
+        ['--older-than', 'March 7'],
+        ['--older-than', '2024-1-5'],
+        ['--stale', '0'],
         ['--budget', 'speed<1'],
         ['--format', 'xml'],
         ['--unknown-flag'],
