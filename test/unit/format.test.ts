@@ -142,6 +142,42 @@ describe('time', () => {
         expect(() => parsePointInTime('yesterday-ish')).toThrow(RangeError);
     });
 
+    it('accepts only ages with a unit, YYYY-MM-DD, and ISO 8601 timestamps (#17)', () => {
+        expect(parsePointInTime('2024-01-05T10:00:00+02:00')).toBe(
+            Date.parse('2024-01-05T08:00:00Z')
+        );
+        expect(parsePointInTime('2024-01-05T10:00')).toBe(new Date(2024, 0, 5, 10).getTime());
+        expect(parsePointInTime('2024-01-05t10:00:00.5z')).toBe(
+            Date.parse('2024-01-05T10:00:00.500Z')
+        );
+        // Date.parse read these as dates in 2000 and 2001, or accepted free text.
+        for (const input of ['0', '1', '5', '12', '99', '30', '1.5', '2024', 'March 7']) {
+            expect(() => parsePointInTime(input, { now })).toThrow(RangeError);
+        }
+        expect(() => parsePointInTime('Dec 25, 2024')).toThrow(RangeError);
+        expect(() => parsePointInTime('2024-01-05T10:00:00+0200')).toThrow(RangeError);
+        expect(() => parsePointInTime('2024-01-05T24:00')).toThrow(/Invalid timestamp/);
+        expect(() => parsePointInTime('2024-02-30T10:00Z')).toThrow(/Invalid timestamp/);
+        // Years below 100 are themselves, not 19xx.
+        expect(new Date(parsePointInTime('0050-03-01')).getFullYear()).toBe(50);
+        expect(parsePointInTime('0050-03-01T00:00Z')).toBe(Date.parse('0050-03-01T00:00Z'));
+        expect(() => parsePointInTime('2023-02-29')).toThrow(/Invalid date/);
+        expect(parsePointInTime('2024-02-29', { endOfDay: true })).toBe(
+            new Date(2024, 1, 29, 23, 59, 59, 999).getTime()
+        );
+    });
+
+    it('explains how to fix a rejected value', () => {
+        expect(() => parsePointInTime('12')).toThrow(/add one, for example 12mo/i);
+        expect(() => parsePointInTime('2024')).toThrow(/for example 2024-01-01/);
+        // An unpadded date used to lose the whole-day rule instead of being rejected.
+        expect(() => parsePointInTime('2024-1-5', { endOfDay: true })).toThrow(
+            /YYYY-MM-DD, for example 2024-01-05/
+        );
+        expect(() => parsePointInTime('2024-01-05 10:00')).toThrow(/for example 2024-01-05T10:00/);
+        expect(() => parsePointInTime('whenever')).toThrow(/Invalid date or age "whenever"/);
+    });
+
     it('formats elapsed time and ages', () => {
         expect(formatElapsed(840)).toBe('840ms');
         expect(formatElapsed(3200)).toBe('3.2s');

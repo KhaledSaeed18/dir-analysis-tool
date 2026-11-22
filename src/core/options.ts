@@ -28,7 +28,10 @@ export interface ScanSettings {
     minSize?: number | string | undefined;
     /** Only include files at most this large. */
     maxSize?: number | string | undefined;
-    /** Only include files modified at or after this time: a date, epoch ms, `YYYY-MM-DD`, or an age such as `"30d"`. */
+    /**
+     * Only include files modified at or after this time: a `Date`, epoch ms, `YYYY-MM-DD`, an ISO 8601
+     * timestamp, or an age with a unit such as `"30d"`. A string without a unit (`"12"`) is rejected.
+     */
     modifiedAfter?: Date | number | string | undefined;
     /** Only include files modified at or before this time. Date-only values include the whole day. */
     modifiedBefore?: Date | number | string | undefined;

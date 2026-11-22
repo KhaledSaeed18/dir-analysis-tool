@@ -319,7 +319,7 @@ All scan, report, and output options are accepted too (`pretty` and `json` forma
 | `1.5M`, `1.5MiB`       | 1.5 × 1,024² bytes                                    |
 | `10kB`, `500MB`, `1GB` | Decimal: 10,000, 500,000,000, and 1,000,000,000 bytes |
 
-**Ages and dates:** an age counts back from now (`45s`, `30min`, `12h`, `90d`, `2w`, `6mo`, `1y`). A date is `YYYY-MM-DD` in local time, or any ISO 8601 timestamp.
+**Ages and dates:** an age counts back from now (`45s`, `30min`, `12h`, `90d`, `2w`, `6mo`, `1y`) and always needs a unit: `--stale 12` is an error, not 12 months. A date is `YYYY-MM-DD` in local time, or an ISO 8601 timestamp such as `2024-01-31T10:00:00Z` (local time without an offset). Nothing else is read as a date.
 
 **Patterns** use [gitignore syntax](https://git-scm.com/docs/gitignore#_pattern_format) relative to the analyzed directory: `*.log` matches at any depth, `build/` matches only directories, `/out` matches only at the top, `docs/**/*.pdf` matches nested files, and `!keep.log` re-includes a file that an earlier pattern in the same list excluded. A negation cannot re-include a file inside an excluded folder, a default exclude such as `node_modules` (use `--all`), or a file that `.gitignore` excludes, because exclude patterns are checked first. `dat explain <path>` shows which rule decided.
 
