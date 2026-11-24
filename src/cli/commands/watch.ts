@@ -1,6 +1,6 @@
 import { Option, type Command } from '../command.ts';
 import { Excluder } from '../../core/exclude.ts';
-import { listDirectories } from '../../core/options.ts';
+import { assertDirectory, listDirectories } from '../../core/options.ts';
 import { AbortError, errorMessage } from '../../errors.ts';
 import { formatBytes } from '../../format/bytes.ts';
 import {
@@ -77,6 +77,10 @@ export function registerWatch(program: Command, ctx: Context): void {
         const clear =
             cli['clear'] !== false && display.format === 'pretty' && ctx.io.stdout.isTTY === true;
         const signal = ctx.io.signal;
+
+        // One check before the first scan and before any watcher: a root that is missing or not a
+        // directory is an error (exit 1), not something to watch or poll for.
+        await assertDirectory(target);
 
         let previous: AnalysisResult | null = null;
         let running = false;

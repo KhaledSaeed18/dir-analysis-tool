@@ -70,6 +70,19 @@ describe('dat watch', () => {
         expect(result.code).toBe(0);
         expect(result.stderr).toContain('watching');
     });
+
+    it.each([
+        ['is missing', (root: string) => join(root, 'missing'), 'No such directory'],
+        ['is a file', (root: string) => join(root, 'a.txt'), 'Not a directory'],
+    ])('exits 1 with one error line when the root %s', async (_name, path, message) => {
+        const root = await fixture({ 'a.txt': 'x' });
+        for (const mode of [[], ['--poll', '1']]) {
+            const result = await cli(['watch', path(root), '--json', ...mode]);
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr.trim().split('\n')).toEqual([`error ${message}: ${path(root)}`]);
+        }
+    });
 });
 
 describe('TreeWatcher', () => {
