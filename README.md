@@ -186,18 +186,18 @@ A size tree (`dat src -t --tree-depth 2`):
 
 **Output options:**
 
-| Option                  | Description                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------- |
-| `-f, --format <format>` | `pretty` (default), `json`, `markdown`, `csv`, or `html`.                              |
-| `-j, --json`            | Same as `--format json`.                                                               |
-| `--compact`             | One-line JSON with every list cut to `--top` items. See [Compact JSON](#compact-json). |
-| `-o, --output <file>`   | Write the report to a file instead of stdout.                                          |
-| `--html [file.html]`    | Also write an HTML report. Default name `directory-analysis-<date>.html`.              |
-| `--csv [file.csv]`      | Also write a CSV export. Default name `directory-analysis.csv`.                        |
-| `--si`                  | Decimal units (kB, MB, powers of 1000) instead of binary (KiB, MiB, powers of 1024).   |
-| `--color`, `--no-color` | Force colors on or off. `NO_COLOR` and `FORCE_COLOR` are honored.                      |
-| `--no-progress`         | Hide the progress line. It is only ever drawn on an interactive stderr.                |
-| `-q, --quiet`           | Print only the report and errors.                                                      |
+| Option                  | Description                                                                                                                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-f, --format <format>` | `pretty` (default), `json`, `markdown`, `csv`, or `html`.                                                                                                                                                  |
+| `-j, --json`            | Same as `--format json`.                                                                                                                                                                                   |
+| `--compact`             | One-line JSON with every list cut to `--top` items. See [Compact JSON](#compact-json).                                                                                                                     |
+| `-o, --output <file>`   | Write the report to a file instead of stdout. Missing folders are created. A path that can't be written (a directory, a read-only folder) is an error before the scan starts, as for `--html` and `--csv`. |
+| `--html [file.html]`    | Also write an HTML report. Default name `directory-analysis-<date>.html`.                                                                                                                                  |
+| `--csv [file.csv]`      | Also write a CSV export. Default name `directory-analysis.csv`.                                                                                                                                            |
+| `--si`                  | Decimal units (kB, MB, powers of 1000) instead of binary (KiB, MiB, powers of 1024).                                                                                                                       |
+| `--color`, `--no-color` | Force colors on or off. `NO_COLOR` and `FORCE_COLOR` are honored.                                                                                                                                          |
+| `--no-progress`         | Hide the progress line. It is only ever drawn on an interactive stderr.                                                                                                                                    |
+| `-q, --quiet`           | Print only the report and errors.                                                                                                                                                                          |
 
 ### `dat compare`
 
@@ -551,12 +551,12 @@ The benchmark script reports scan and duplicate timings plus process peak RSS (n
 
 ## Exit codes
 
-| Code  | Meaning                                                       |
-| ----- | ------------------------------------------------------------- |
-| `0`   | Success, including every `dat explain` decision               |
-| `1`   | Error: invalid option or config, missing directory, and so on |
-| `2`   | A budget failed                                               |
-| `130` | Interrupted (Ctrl+C), including stopping `dat watch`          |
+| Code  | Meaning                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------- |
+| `0`   | Success, including every `dat explain` decision                                                    |
+| `1`   | Error: invalid option or config, missing directory, a report file that can't be written, and so on |
+| `2`   | A budget failed                                                                                    |
+| `130` | Interrupted (Ctrl+C), including stopping `dat watch`                                               |
 
 A reader that stops early (`dat . --json | head`) doesn't change the exit code: a failed budget still exits `2`.
 

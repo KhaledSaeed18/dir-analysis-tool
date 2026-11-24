@@ -13,7 +13,7 @@ import {
     resolveScanSettings,
 } from '../options.ts';
 import { ProgressLine } from '../progress.ts';
-import { escapeControl, formatCount } from '../../format/text.ts';
+import { formatCount } from '../../format/text.ts';
 import { listLimit } from './analyze.ts';
 
 const EXAMPLES = `
@@ -49,6 +49,7 @@ export function registerCompare(program: Command, ctx: Context): void {
         const { config } = await ctx.loadConfig(cli, ctx.io.cwd);
         const display = resolveDisplay(cli, config);
         const top = read.number(cli['top']) ?? config.top;
+        if (display.output) await ctx.checkOutput(display.output);
         const progress = new ProgressLine(
             ctx.io.stderr,
             display.progress && ctx.io.stderr.isTTY === true,
@@ -88,7 +89,7 @@ export function registerCompare(program: Command, ctx: Context): void {
         if (display.output) {
             const file = await ctx.writeFile(display.output, text);
             ctx.info(
-                `${ctx.err.green('✔')} Comparison written to ${escapeControl(file)}`,
+                `${ctx.err.green('✔')} Comparison written to ${ctx.displayPath(file)}`,
                 display.quiet
             );
         } else {

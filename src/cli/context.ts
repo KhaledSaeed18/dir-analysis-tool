@@ -1,8 +1,10 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { constants } from 'node:fs';
+import { access, mkdir, stat, writeFile } from 'node:fs/promises';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { loadConfig, type LoadedConfig } from '../config/load.ts';
 import { createStyle, supportsColor, type Style } from '../format/style.ts';
-import { escapeControlInLines } from '../format/text.ts';
+import { DatError, errorCode, errorMessage } from '../errors.ts';
+import { escapeControl, escapeControlInLines } from '../format/text.ts';
 import type { CliIO } from './io.ts';
 import { isClosed, write } from './io.ts';
 
@@ -46,11 +48,43 @@ export class Context {
         return loaded;
     }
 
-    async writeFile(path: string, content: string): Promise<string> {
+    /** A path for messages: relative to the working directory when inside it, escaped. */
+    displayPath(file: string): string {
+        const rel = relative(this.io.cwd, file);
+        return escapeControl(rel && !rel.startsWith('..') ? rel : file);
+    }
+
+    /**
+     * Fails before any work starts when `path` can't be written: it is a directory, a parent is a
+     * file, or the folder is read-only. Creates nothing. `what` names the file in the message.
+     */
+    async checkOutput(path: string, what = 'the report'): Promise<void> {
         const absolute = this.resolvePath(path);
-        await mkdir(dirname(absolute), { recursive: true });
-        await writeFile(absolute, content);
+        const problem = await outputProblem(absolute, (p) => this.displayPath(p));
+        if (problem) throw this.#outputError(absolute, what, problem);
+    }
+
+    async writeFile(path: string, content: string, what = 'the report'): Promise<string> {
+        const absolute = this.resolvePath(path);
+        try {
+            await mkdir(dirname(absolute), { recursive: true });
+            await writeFile(absolute, content);
+        } catch (error) {
+            // The path changed since checkOutput, or the disk is full: still a plain message.
+            const problem =
+                (await outputProblem(absolute, (p) => this.displayPath(p))) ?? errorMessage(error);
+            throw this.#outputError(absolute, what, problem);
+        }
         return absolute;
+    }
+
+    #outputError(absolute: string, what: string, problem: string): DatError {
+        const shown = this.displayPath(absolute);
+        const hint =
+            problem === 'it is a directory'
+                ? `Give a file name, for example ${shown}${sep}${exampleName(what)}.`
+                : undefined;
+        return new DatError(`Cannot write ${what} to ${shown}: ${problem}`, hint ? { hint } : {});
     }
 
     stdout(text: string): Promise<void> {
@@ -61,4 +95,46 @@ export class Context {
     get stdoutClosed(): boolean {
         return isClosed(this.io.stdout);
     }
+}
+
+/** Why `file` can't be written, or null when it can (as far as can be told without writing). */
+async function outputProblem(file: string, show: (path: string) => string): Promise<string | null> {
+    try {
+        const stats = await stat(file);
+        if (stats.isDirectory()) return 'it is a directory';
+        return (await writable(file)) ? null : 'permission denied';
+    } catch (error) {
+        const code = errorCode(error);
+        if (code === 'EACCES' || code === 'EPERM') return 'permission denied';
+        if (code !== 'ENOENT' && code !== 'ENOTDIR') return errorMessage(error);
+    }
+    // The file doesn't exist: the nearest existing ancestor must be a writable directory.
+    for (let dir = dirname(file); ; dir = dirname(dir)) {
+        try {
+            const stats = await stat(dir);
+            if (!stats.isDirectory()) return `${show(dir)} is not a directory`;
+            return (await writable(dir)) ? null : 'permission denied';
+        } catch (error) {
+            const code = errorCode(error);
+            if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+                return code === 'EACCES' || code === 'EPERM'
+                    ? 'permission denied'
+                    : errorMessage(error);
+            }
+            if (dirname(dir) === dir) return null;
+        }
+    }
+}
+
+async function writable(path: string): Promise<boolean> {
+    return access(path, constants.W_OK).then(
+        () => true,
+        () => false
+    );
+}
+
+function exampleName(what: string): string {
+    if (what.includes('HTML')) return 'report.html';
+    if (what.includes('CSV')) return 'report.csv';
+    return 'report.txt';
 }
