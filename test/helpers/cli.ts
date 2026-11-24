@@ -40,12 +40,14 @@ export interface RunOptions {
     stdin?: Readable;
     /** Receives stdout as it is written. */
     onStdout?: (text: string) => void;
+    /** Receives stderr as it is written. */
+    onStderr?: (text: string) => void;
 }
 
 /** Runs the CLI in-process with captured, non-TTY output and no colors. */
 export async function cli(args: string[], options: RunOptions = {}): Promise<CliResult> {
     const stdout = new Capture(options.tty ?? false, 100, options.onStdout);
-    const stderr = new Capture(options.tty ?? false, 100);
+    const stderr = new Capture(options.tty ?? false, 100, options.onStderr);
     const io: CliIO = {
         stdout,
         stderr,

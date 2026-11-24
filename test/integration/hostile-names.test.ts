@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../../src/core/analyze.ts';
@@ -150,4 +151,20 @@ describe.skipIf(isWindows)('file names with control characters', () => {
             expect(result.stderr).not.toContain(ESC);
         }
     });
+    it('are escaped when dat watch says its root was removed', async () => {
+        const root = join(await fixture({ [`${FOLDER}/a.txt`]: 'x' }), FOLDER);
+        const controller = new AbortController();
+        let errors = '';
+        const running = cli(['watch', root, '--json', '--poll', '1'], {
+            signal: controller.signal,
+            onStdout: () => void rm(root, { recursive: true, force: true }),
+            onStderr: (text) => {
+                errors = text;
+                if (text.includes('was removed')) controller.abort();
+            },
+        });
+        const result = await running;
+        expect(errors).toContain('dir\\x1b[2J');
+        expect(escapeControlInLines(result.stderr)).toBe(result.stderr);
+    }, 10_000);
 });

@@ -83,6 +83,36 @@ describe('dat watch', () => {
             expect(result.stderr.trim().split('\n')).toEqual([`error ${message}: ${path(root)}`]);
         }
     });
+
+    it.each([[[] as string[]], [['--poll', '1']]])(
+        'waits for a deleted root and reports again once it is back (%j)',
+        async (mode) => {
+            const parent = await fixture({ 'w/a.txt': 'x' });
+            const root = join(parent, 'w');
+            const controller = new AbortController();
+            let output = '';
+            let errors = '';
+            const running = cli(['watch', root, '--json', '--debounce', '50', ...mode], {
+                signal: controller.signal,
+                onStdout: (text) => (output = text),
+                onStderr: (text) => (errors = text),
+            });
+            await waitFor(() => lines(output).length === 1);
+            await rm(root, { recursive: true });
+            await waitFor(() => errors.includes('was removed'));
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await mkdir(root);
+            await writeFile(join(root, 'b.txt'), 'yy');
+            await waitFor(() => lines(output).at(-1)?.summary.bytes === 2);
+            controller.abort();
+            const result = await running;
+            expect(result.code).toBe(0);
+            expect(result.stderr.match(/was removed/g)).toHaveLength(1);
+            expect(result.stderr).not.toContain('No such directory');
+            expect(result.stderr).not.toContain('falling back');
+        },
+        20_000
+    );
 });
 
 describe('TreeWatcher', () => {
