@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TreeWatcher } from '../../src/cli/watcher.ts';
@@ -137,6 +137,30 @@ describe('dat watch', () => {
         expect(settled).toBeLessThanOrEqual(3);
         expect(result.stdout).toBe('');
     }, 15_000);
+
+    it('writes JSON reports to -o, rewriting the file on each change', async () => {
+        const root = await fixture({ 'a.txt': 'x' });
+        const out = join(await fixture({}), 'report.json');
+        const controller = new AbortController();
+        let errors = '';
+        const running = cli(['watch', root, '-j', '-o', out, '--debounce', '50'], {
+            signal: controller.signal,
+            onStderr: (text) => (errors = text),
+        });
+        await waitFor(() => errors.includes('Report written'));
+        const read = async (): Promise<AnalysisResult> => {
+            const report: unknown = JSON.parse(await readFile(out, 'utf8'));
+            assertValidReport(report);
+            return report as AnalysisResult;
+        };
+        expect((await read()).summary.files).toBe(1);
+        await writeFile(join(root, 'b.txt'), 'y');
+        await waitFor(() => (errors.match(/Report written/g)?.length ?? 0) >= 2);
+        controller.abort();
+        const result = await running;
+        expect(result.stdout).toBe('');
+        expect((await read()).summary.files).toBe(2);
+    });
 });
 
 describe('TreeWatcher', () => {
