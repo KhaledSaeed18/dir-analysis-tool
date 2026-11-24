@@ -229,11 +229,14 @@ export interface ComparisonResult {
     left: ComparisonSide;
     right: ComparisonSide;
     delta: { bytes: number; diskBytes: number; files: number; directories: number };
+    /** Every added file, whatever `top` is; the CLI cuts only pretty and Markdown output. */
     added: ItemList<FileEntry>;
+    /** Every removed file, whatever `top` is. */
     removed: ItemList<FileEntry>;
+    /** Every changed file, whatever `top` is. */
     changed: { count: number; delta: number; items: ChangedFile[] };
     unchanged: number;
-    /** Directories with the largest size change, largest absolute change first. */
+    /** At most `top` directories with the largest size change, largest absolute change first. */
     directories: DirectoryDelta[];
 }
 

@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { compare } from '../../src/core/compare.ts';
+import type { ComparisonResult } from '../../src/types.ts';
+import { cli, json } from '../helpers/cli.ts';
 import { bytes, fixture } from '../helpers/fixture.ts';
 
 describe('compare', () => {
@@ -71,5 +73,58 @@ describe('compare', () => {
         await expect(compare(join(root, 'a'), join(root, 'missing'))).rejects.toThrow(
             /No such directory/
         );
+    });
+});
+
+describe('dat compare --top (#21)', () => {
+    async function trees(): Promise<[string, string]> {
+        const left = await fixture(
+            Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`c${i}.txt`, 'x']))
+        );
+        const right = await fixture({
+            ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`c${i}.txt`, 'xx'])),
+            ...Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`d${i}/f`, 'y'])),
+        });
+        return [left, right];
+    }
+
+    it('hides every list with -n 0 in pretty and Markdown, keeping the counts', async () => {
+        const [left, right] = await trees();
+        const pretty = await cli(['compare', left, right, '-n', '0', '--no-config']);
+        expect(pretty.code).toBe(0);
+        expect(pretty.stdout).toContain('Added  15 files');
+        expect(pretty.stdout).toContain('… 15 files not listed (--top 0)');
+        expect(pretty.stdout).toContain('… 12 files not listed (--top 0)');
+        expect(pretty.stdout).not.toMatch(/^ {3}[+~] /m);
+        expect(pretty.stdout).not.toContain('Folders that changed most');
+
+        const md = await cli(['compare', left, right, '-n', '0', '-f', 'markdown', '--no-config']);
+        expect(md.stdout).toContain('### Added: 15 files');
+        expect(md.stdout).toContain('<sub>15 files not listed (--top 0)</sub>');
+        expect(md.stdout).not.toContain('`d0/f`');
+        expect(md.stdout).not.toContain('`c0.txt`');
+    });
+
+    it('cuts every list to -n in pretty output', async () => {
+        const [left, right] = await trees();
+        const pretty = await cli(['compare', left, right, '-n', '3', '--no-config']);
+        expect(pretty.stdout.match(/^ {3}\+ /gm)).toHaveLength(3);
+        expect(pretty.stdout.match(/^ {3}~ /gm)).toHaveLength(3);
+        expect(pretty.stdout).toContain('… 12 more');
+    });
+
+    it('keeps JSON file lists complete; folders follow --top', async () => {
+        const [left, right] = await trees();
+        for (const [top, folders] of [
+            ['0', 0],
+            ['3', 3],
+        ] as const) {
+            const report = json<ComparisonResult>(
+                await cli(['compare', left, right, '-n', top, '-j', '--no-config'])
+            );
+            expect(report.added.items).toHaveLength(15);
+            expect(report.changed.items).toHaveLength(12);
+            expect(report.directories).toHaveLength(folders);
+        }
     });
 });

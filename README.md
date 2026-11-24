@@ -228,11 +228,11 @@ A size tree (`dat src -t --tree-depth 2`):
  2 files unchanged (compared by size)
 ```
 
-| Option                  | Description                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
-| `--content`             | Also compare same-sized files by content (SHA-256). By default, files are compared by size. |
-| `-n, --top <n>`         | Items per list. Default `10`.                                                               |
-| `-f, --format <format>` | `pretty`, `json`, `markdown`, or `csv`.                                                     |
+| Option                  | Description                                                                                                                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--content`             | Also compare same-sized files by content (SHA-256). By default, files are compared by size.                                                                                               |
+| `-n, --top <n>`         | Items per list. Default `10`; `0` lists no files and keeps the counts. JSON and CSV list every added, removed and changed file; the changed-folders list follows `--top` in every format. |
+| `-f, --format <format>` | `pretty`, `json`, `markdown`, or `csv`.                                                                                                                                                   |
 
 All scan options and shared output options above are accepted too; `--html`, `--csv`, and HTML format are analyze-only. Use `--format csv` to export a comparison.
 

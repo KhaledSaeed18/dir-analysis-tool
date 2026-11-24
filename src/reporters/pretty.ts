@@ -26,7 +26,7 @@ export interface PrettyOptions {
     units?: ByteUnits;
     /** Terminal width used to fit paths. Default: 100. */
     width?: number;
-    /** Maximum items printed per list. Default: 10. */
+    /** Maximum items printed per list. Default: 10. A comparison lists none with 0. */
     limit?: number;
     /** Show the file type breakdown. Default: true. */
     types?: boolean;
@@ -324,6 +324,12 @@ function renderTree(r: Renderer, root: TreeNode): void {
 export function renderComparison(result: ComparisonResult, options: PrettyOptions = {}): string {
     const r = new Renderer(options);
     const { s } = r;
+    // 0 lists no files (`dat compare -n 0`); the headings still give every count.
+    const limit = Math.max(0, options.limit ?? 10);
+    const more = (shown: number, total: number): void =>
+        limit === 0
+            ? r.more(0, total, `${total === 1 ? 'file' : 'files'} not listed (--top 0)`)
+            : r.more(shown, total);
     const signed = (n: number): string =>
         n > 0 ? s.green(`+${r.bytes(n)}`) : n < 0 ? s.red(r.bytes(n)) : s.dim('±0');
     const signedCount = (n: number): string =>
@@ -380,10 +386,10 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
     const fileSection = (title: string, list: ComparisonResult['added'], mark: string): void => {
         if (list.count === 0) return;
         r.heading(title, `${plural(list.count, 'file')} · ${r.bytes(list.bytes)}`);
-        for (const f of list.items.slice(0, r.limit)) {
+        for (const f of list.items.slice(0, limit)) {
             r.line(`   ${mark} ${r.size(f.bytes)}  ${fitPath(f.path, r.room(5 + SIZE_WIDTH + 2))}`);
         }
-        r.more(Math.min(r.limit, list.items.length), list.count);
+        more(Math.min(limit, list.items.length), list.count);
     };
     fileSection('Added', result.added, s.green('+'));
     fileSection('Removed', result.removed, s.red('-'));
@@ -393,19 +399,19 @@ export function renderComparison(result: ComparisonResult, options: PrettyOption
             'Changed',
             `${plural(result.changed.count, 'file')} · ${result.changed.delta > 0 ? '+' : ''}${formatBytes(result.changed.delta, r.units)} net`
         );
-        for (const c of result.changed.items.slice(0, r.limit)) {
+        for (const c of result.changed.items.slice(0, limit)) {
             const detail =
                 c.delta === 0 ? 'content' : `${r.bytes(c.leftBytes)} → ${r.bytes(c.rightBytes)}`;
             r.line(
                 `   ${s.yellow('~')} ${padStartVisible(signed(c.delta), SIZE_WIDTH)}  ${fitPath(c.path, r.room(5 + SIZE_WIDTH + 4 + detail.length))}  ${s.dim(detail)}`
             );
         }
-        r.more(Math.min(r.limit, result.changed.items.length), result.changed.count);
+        more(Math.min(limit, result.changed.items.length), result.changed.count);
     }
 
     if (result.directories.length > 0) {
         r.heading('Folders that changed most');
-        for (const d of result.directories.slice(0, r.limit)) {
+        for (const d of result.directories.slice(0, limit)) {
             r.line(
                 `   ${padStartVisible(signed(d.delta), SIZE_WIDTH + 2)}  ${fitPath(`${d.path}/`, r.room(5 + SIZE_WIDTH + 2))}`
             );

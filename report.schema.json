@@ -739,12 +739,15 @@
                     }
                 },
                 "added": {
+                    "description": "Every added file, whatever --top is.",
                     "$ref": "#/$defs/fileList"
                 },
                 "removed": {
+                    "description": "Every removed file, whatever --top is.",
                     "$ref": "#/$defs/fileList"
                 },
                 "changed": {
+                    "description": "Every changed file, whatever --top is.",
                     "type": "object",
                     "required": ["count", "delta", "items"],
                     "properties": {
@@ -785,6 +788,7 @@
                     "minimum": 0
                 },
                 "directories": {
+                    "description": "At most --top folders with the largest size change; none with --top 0.",
                     "type": "array",
                     "items": {
                         "type": "object",
