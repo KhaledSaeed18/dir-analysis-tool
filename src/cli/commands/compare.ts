@@ -14,7 +14,6 @@ import {
 } from '../options.ts';
 import { ProgressLine } from '../progress.ts';
 import { formatCount } from '../../format/text.ts';
-import { listLimit } from './analyze.ts';
 
 const EXAMPLES = `
 Examples:
@@ -38,7 +37,10 @@ export function registerCompare(program: Command, ctx: Context): void {
             )
         )
         .addOption(
-            new Option('-n, --top <n>', 'items per list (default: 10)')
+            new Option(
+                '-n, --top <n>',
+                'items per list (default: 10; 0 lists none); JSON and CSV list every file'
+            )
                 .argParser(integer(0))
                 .helpGroup('Report options:')
         );
@@ -82,7 +84,7 @@ export function registerCompare(program: Command, ctx: Context): void {
             style: ctx.outputStyle(display.color, display.output !== undefined),
             units: display.units,
             width: terminalWidth(ctx.io),
-            limit: listLimit(top),
+            limit: top ?? 10,
             types: display.types,
             extensions: false,
         });

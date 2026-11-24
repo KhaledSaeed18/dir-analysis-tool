@@ -239,9 +239,16 @@ export function renderComparisonMarkdown(
         )
     );
 
+    // 0 lists no files (`dat compare -n 0`); the headings still give every count.
+    const notListed = (count: number): boolean => {
+        if (limit > 0) return false;
+        out.push(`<sub>${plural(count, 'file')} not listed (--top 0)</sub>`);
+        return true;
+    };
     const section = (title: string, list: ComparisonResult['added']): void => {
         if (list.count === 0) return;
         out.push('', `### ${title}: ${plural(list.count, 'file')}, ${b(list.bytes)}`, '');
+        if (notListed(list.count)) return;
         out.push(
             ...table(
                 ['Size', 'Path'],
@@ -261,6 +268,8 @@ export function renderComparisonMarkdown(
             `### Changed: ${plural(result.changed.count, 'file')}, ${signed(result.changed.delta)} net`,
             ''
         );
+    }
+    if (result.changed.count > 0 && !notListed(result.changed.count)) {
         out.push(
             ...table(
                 ['Change', 'Path', 'Left', 'Right'],
