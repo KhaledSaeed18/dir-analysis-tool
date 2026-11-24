@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.3](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.2...v3.5.3) (2026-11-24)
+
+### Bug Fixes
+
+* **cli:** report unwritable output paths plainly, before the scan ([2245228](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/22452289ebe0846708acf1f6c8e499a2590ee167)), closes [#25](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/25)
+* **compare:** make -n 0 hide every list in pretty and Markdown output ([2610934](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/26109348b35718ee748996942706bb93ed9aeabb)), closes [#21](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/21)
+
 ## [3.5.2](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.1...v3.5.2) (2026-11-24)
 
 ### Bug Fixes
