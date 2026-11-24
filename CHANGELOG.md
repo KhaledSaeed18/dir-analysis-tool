@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.5.2](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.1...v3.5.2) (2026-11-24)
+
+### Bug Fixes
+
+* **watch:** check the root once before scanning or watching ([5284316](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/528431608135f2b73bb0f1d9ff124be7ea3379d4)), closes [#20](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/20)
+* **watch:** exit 130 when stopped with Ctrl+C ([081de98](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/081de98ed3b6c517c292db1437d77d0ec6ae1a76)), closes [#30](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/30)
+* **watch:** notice a deleted root on Windows ([7ca270f](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/7ca270f97e0ff1bebb8ea790d5199abad6b6f51c))
+* **watch:** report every change when polling, not only size changes ([9152734](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/915273424d7f46f0a6641c3acd17e548070ad3ef)), closes [#29](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/29)
+* **watch:** stop -o inside the watched folder from re-triggering itself ([745af69](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/745af69b8b6da5cb740c4249a597663d598cf185)), closes [#28](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/28)
+* **watch:** wait for a deleted root and report again once it is back ([a8a3a61](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/a8a3a61298e6661265114c51d3938cfe43b5a70f)), closes [#19](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/19)
+* **watch:** write JSON reports to -o instead of stdout ([336d5a6](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/336d5a6afe532e8c35abc1dd417a511b7a969d24)), closes [#18](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/18)
+
 ## [3.5.1](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.0...v3.5.1) (2026-11-22)
 
 ### Bug Fixes
