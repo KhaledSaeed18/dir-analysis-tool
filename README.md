@@ -289,12 +289,18 @@ All scan options are accepted, as are `--si`, `--color`, `--no-color`, `--no-pro
 
 ### `dat watch`
 
-`dat watch [directory] [options]` re-analyzes whenever something changes. It uses the operating system's native file watching: recursive on macOS and Windows; on Linux, one watcher per scanned folder, so skipped folders like `node_modules` are never watched. If watching fails, it falls back to polling.
+`dat watch [directory] [options]` re-analyzes whenever something changes. It uses the operating system's native file watching: recursive on macOS and Windows; on Linux, one watcher per scanned folder, so skipped folders like `node_modules` are never watched. If watching fails, it falls back to polling every 5 seconds.
 
 ```bash
 dat watch . -l 1GB                        # keep an eye on large files
 dat watch . --json | jq -c .summary       # one JSON document per line (NDJSON)
+dat watch . -j -o report.json             # keep report.json up to date
 ```
+
+- **Output.** Without `-o`, each report goes to stdout: pretty reports replace the previous one on a terminal (`--no-clear` keeps them), and JSON reports are printed one per line (NDJSON). With `-o`, the file is rewritten with the latest report on each change, in either format. The report file counts in the analysis like any other file, but writing it never starts a new scan, even inside the watched folder.
+- **`--poll`.** A new report is printed only when it would differ from the previous one, for any reason: a size, a date, a stale or empty file, a duplicate.
+- **A missing root.** A directory that doesn't exist (or isn't a directory) when `watch` starts is an error: one message, exit code `1`. If the watched directory is deleted later, `watch` says so once and waits; when it comes back, it reports again and resumes watching, on every platform and with `--poll`.
+- **Stopping.** Ctrl+C stops `watch` with exit code `130`, as for every command. It also stops on its own, with exit code `0`, when the reader of its output goes away (`dat watch --json | head -1`).
 
 | Option             | Description                                                |
 | ------------------ | ---------------------------------------------------------- |
@@ -550,7 +556,7 @@ The benchmark script reports scan and duplicate timings plus process peak RSS (n
 | `0`   | Success, including every `dat explain` decision               |
 | `1`   | Error: invalid option or config, missing directory, and so on |
 | `2`   | A budget failed                                               |
-| `130` | Interrupted (Ctrl+C)                                          |
+| `130` | Interrupted (Ctrl+C), including stopping `dat watch`          |
 
 A reader that stops early (`dat . --json | head`) doesn't change the exit code: a failed budget still exits `2`.
 
