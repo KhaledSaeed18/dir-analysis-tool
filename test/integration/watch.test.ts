@@ -9,7 +9,11 @@ import { cli } from '../helpers/cli.ts';
 import { fixture } from '../helpers/fixture.ts';
 import { assertValidReport } from '../helpers/report-schema.ts';
 
-function waitFor(check: () => boolean, timeout = 10_000): Promise<void> {
+function waitFor(
+    check: () => boolean,
+    timeout = 10_000,
+    state: () => string = () => ''
+): Promise<void> {
     return new Promise((resolve, reject) => {
         const started = Date.now();
         const timer = setInterval(() => {
@@ -18,7 +22,7 @@ function waitFor(check: () => boolean, timeout = 10_000): Promise<void> {
                 resolve();
             } else if (Date.now() - started > timeout) {
                 clearInterval(timer);
-                reject(new Error('timed out'));
+                reject(new Error(`timed out ${state()}`.trim()));
             }
         }, 20);
     });
@@ -100,11 +104,12 @@ describe('dat watch', () => {
             });
             await waitFor(() => lines(output).length === 1);
             await rm(root, { recursive: true });
-            await waitFor(() => errors.includes('was removed'));
+            const state = (): string => JSON.stringify({ output, errors });
+            await waitFor(() => errors.includes('was removed'), 10_000, state);
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await mkdir(root);
             await writeFile(join(root, 'b.txt'), 'yy');
-            await waitFor(() => lines(output).at(-1)?.summary.bytes === 2);
+            await waitFor(() => lines(output).at(-1)?.summary.bytes === 2, 10_000, state);
             controller.abort();
             const result = await running;
             expect(result.code).toBe(130);
