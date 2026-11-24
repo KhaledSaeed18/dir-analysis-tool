@@ -25,7 +25,7 @@ import {
     resolveDisplay,
 } from '../options.ts';
 import { TreeWatcher } from '../watcher.ts';
-import { emit, listLimit, runAnalysis } from './analyze.ts';
+import { checkOutputs, emit, listLimit, runAnalysis } from './analyze.ts';
 
 const CLEAR_SCREEN = '\u001B[2J\u001B[3J\u001B[H';
 
@@ -84,6 +84,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         // One check before the first scan and before any watcher: a root that is missing or not a
         // directory is an error (exit 1), not something to watch or poll for.
         await assertDirectory(target);
+        await checkOutputs(ctx, { ...display, html: undefined, csv: undefined });
 
         let previous: AnalysisResult | null = null;
         let previousKey = '';

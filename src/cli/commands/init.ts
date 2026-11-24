@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Option, type Command } from '../command.ts';
 import { parseBudget } from '../../core/budgets.ts';
@@ -19,7 +20,11 @@ export function registerInit(program: Command, ctx: Context): void {
         .addOption(new Option('-y, --yes', 'skip the questions and write a starter config'))
         .addOption(new Option('--force', 'overwrite an existing config file'))
         .action(async (directory: string, options: { yes?: boolean; force?: boolean }) => {
-            const path = join(ctx.resolvePath(directory), '.dir-analyzer.json');
+            const folder = ctx.resolvePath(directory);
+            if (await isFile(folder)) {
+                throw new DatError(`dat init: ${ctx.displayPath(folder)} is not a directory`);
+            }
+            const path = join(folder, '.dir-analyzer.json');
             const exists = existsSync(path);
             if (exists && !options.force && (options.yes || !ctx.io.stdinIsTTY)) {
                 throw new DatError(`${path} already exists.`, {
@@ -45,7 +50,8 @@ export function registerInit(program: Command, ctx: Context): void {
 
             const file = await ctx.writeFile(
                 path,
-                `${JSON.stringify({ $schema: SCHEMA_URL, ...config }, null, 4)}\n`
+                `${JSON.stringify({ $schema: SCHEMA_URL, ...config }, null, 4)}\n`,
+                'the config file'
             );
             ctx.info(`${ctx.err.green('✔')} Wrote ${escapeControl(file)}`, false);
         });
@@ -176,4 +182,12 @@ function validateWith(
     } catch (error) {
         return errorMessage(error);
     }
+}
+
+/** True when `path` exists and is not a directory (dat init creates a missing one). */
+async function isFile(path: string): Promise<boolean> {
+    return stat(path).then(
+        (stats) => !stats.isDirectory(),
+        () => false
+    );
 }
