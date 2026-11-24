@@ -148,11 +148,13 @@ export function registerWatch(program: Command, ctx: Context): void {
 
         const startPolling = (seconds: number): void => {
             polling = true;
+            if (rootCheck) clearInterval(rootCheck);
+            rootCheck = null;
             poller = setInterval(() => void run(), seconds * 1000);
         };
 
-        // The root was deleted (or replaced by a file): say so once, stop watching, and check every
-        // second until it is a directory again. With --poll, the poll interval does the checking.
+        // The root was deleted (or replaced by a file): say so once, stop watching, and wait for it
+        // to be a directory again (see checkRoot; with --poll, each poll checks).
         const markRootGone = (): void => {
             if (rootGone) return;
             rootGone = true;
@@ -160,7 +162,13 @@ export function registerWatch(program: Command, ctx: Context): void {
                 `${escapeControl(target)} was removed; waiting for it to come back (Ctrl+C to stop)`
             );
             closeWatcher();
-            if (!polling) rootCheck = setInterval(() => void run(), 1000);
+        };
+
+        // Watchers don't report the deletion of their own root on every platform (Windows keeps a
+        // watched folder's delete pending), so event mode also checks the root once a second.
+        const checkRoot = async (): Promise<void> => {
+            if (running) return;
+            if (rootGone || !(await isDirectory(target))) await run();
         };
 
         const watchFailed = async (failed: TreeWatcher, error: Error): Promise<void> => {
@@ -205,8 +213,6 @@ export function registerWatch(program: Command, ctx: Context): void {
             }
             if (rootGone) {
                 rootGone = false;
-                if (rootCheck) clearInterval(rootCheck);
-                rootCheck = null;
                 changes++;
             }
             try {
@@ -271,6 +277,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         await run(true);
         if (!signal?.aborted && !readerGone()) {
             if (pollSeconds) startPolling(pollSeconds);
+            else rootCheck = setInterval(() => void checkRoot(), 1000);
             await Promise.race([
                 stopped,
                 new Promise<void>((resolve) => {
