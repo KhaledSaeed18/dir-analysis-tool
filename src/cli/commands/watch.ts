@@ -86,6 +86,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         await assertDirectory(target);
 
         let previous: AnalysisResult | null = null;
+        let previousKey = '';
         let running = false;
         let pending = false;
         let timer: NodeJS.Timeout | null = null;
@@ -234,12 +235,10 @@ export function registerWatch(program: Command, ctx: Context): void {
                     pending = false;
                     const result = await scan();
                     if (!result) break;
-                    if (
-                        !polling ||
-                        !previous ||
-                        changes > 0 ||
-                        fingerprint(previous) !== fingerprint(result)
-                    ) {
+                    // Relative cutoffs (--stale 1y) and timings differ on every scan; nothing else
+                    // may change without a new report.
+                    const key = reportKey(result);
+                    if (!polling || !previous || changes > 0 || key !== previousKey) {
                         await render(result);
                         if (readerGone()) {
                             stopWatching();
@@ -247,6 +246,7 @@ export function registerWatch(program: Command, ctx: Context): void {
                         }
                     }
                     previous = result;
+                    previousKey = key;
                     changes = 0;
                     try {
                         await syncWatcher();
@@ -287,9 +287,20 @@ export function registerWatch(program: Command, ctx: Context): void {
     });
 }
 
-function fingerprint(result: AnalysisResult): string {
-    const s = result.summary;
-    return `${s.bytes}:${s.files}:${s.directories}:${result.largestFiles.map((f) => `${f.path}@${f.modified}`).join('|')}`;
+/** The result without the fields that change on every scan even when nothing on disk did. */
+function reportKey(result: AnalysisResult): string {
+    const {
+        startedAt: _startedAt,
+        durationMs: _durationMs,
+        settings,
+        staleFiles,
+        ...rest
+    } = result;
+    return stringifyJson({
+        ...rest,
+        settings: { ...settings, modifiedAfter: null, modifiedBefore: null },
+        staleFiles: staleFiles && { ...staleFiles, modifiedBefore: '' },
+    });
 }
 
 async function isDirectory(path: string): Promise<boolean> {
