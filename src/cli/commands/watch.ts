@@ -1,4 +1,5 @@
-import { stat } from 'node:fs/promises';
+import { stat, realpath } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { Option, type Command } from '../command.ts';
 import { Excluder } from '../../core/exclude.ts';
 import { assertDirectory, listDirectories } from '../../core/options.ts';
@@ -96,6 +97,9 @@ export function registerWatch(program: Command, ctx: Context): void {
             patterns: options.exclude ?? [],
             defaultExcludes: options.defaultExcludes ?? true,
         });
+        // Events for the report dat itself writes (-o inside the watched folder) are not changes;
+        // otherwise every write would start a new scan and another write.
+        let ownFiles = new Set<string>();
 
         const render = async (result: AnalysisResult): Promise<void> => {
             if (display.format === 'json') {
@@ -173,9 +177,12 @@ export function registerWatch(program: Command, ctx: Context): void {
         const syncWatcher = async (): Promise<void> => {
             if (polling || signal?.aborted) return;
             if (!watcher) {
+                if (display.output) {
+                    ownFiles = await ownFileEvents(target, ctx.resolvePath(display.output));
+                }
                 const created: TreeWatcher = new TreeWatcher({
                     root: target,
-                    isIgnored: (rel) => excluder.isPathExcluded(rel),
+                    isIgnored: (rel) => ownFiles.has(rel) || excluder.isPathExcluded(rel),
                     onChange: schedule,
                     onError: (error) => void watchFailed(created, error),
                 });
@@ -288,6 +295,23 @@ async function isDirectory(path: string): Promise<boolean> {
         (stats) => stats.isDirectory(),
         () => false
     );
+}
+
+/**
+ * The root-relative `/` paths under which the watcher may report `file`: as given, and through
+ * real paths, since FSEvents can report `/private/var` for a root under `/var`.
+ */
+async function ownFileEvents(root: string, file: string): Promise<Set<string>> {
+    const paths = new Set<string>();
+    const add = (base: string, path: string): void => {
+        const rel = relative(base, path);
+        if (rel && !rel.startsWith('..') && !isAbsolute(rel)) paths.add(rel.split(sep).join('/'));
+    };
+    add(root, file);
+    const realRoot = await realpath(root).catch(() => root);
+    const realDir = await realpath(dirname(file)).catch(() => dirname(file));
+    add(realRoot, join(realDir, basename(file)));
+    return paths;
 }
 
 function describeChange(

@@ -113,6 +113,30 @@ describe('dat watch', () => {
         },
         20_000
     );
+
+    it('ignores changes to its own -o file inside the watched folder', async () => {
+        const root = await fixture({ 'a.txt': 'x' });
+        const controller = new AbortController();
+        let errors = '';
+        const written = (): number => errors.match(/Report written/g)?.length ?? 0;
+        const running = cli(
+            ['watch', root, '-o', join(root, 'out', 'report.txt'), '--debounce', '50'],
+            { signal: controller.signal, onStderr: (text) => (errors = text) }
+        );
+        await waitFor(() => written() === 1);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await writeFile(join(root, 'b.txt'), 'y');
+        await waitFor(() => written() >= 2);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const settled = written();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        controller.abort();
+        const result = await running;
+        expect(written()).toBe(settled);
+        // The first write creates the out/ folder, which may cost one extra scan; never a loop.
+        expect(settled).toBeLessThanOrEqual(3);
+        expect(result.stdout).toBe('');
+    }, 15_000);
 });
 
 describe('TreeWatcher', () => {
