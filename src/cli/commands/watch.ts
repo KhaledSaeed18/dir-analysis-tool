@@ -35,6 +35,7 @@ Examples:
   $ dat watch ./downloads -l 1GB       keep an eye on large downloads
   $ dat watch . --json | jq -c .summary
                                        one JSON document per line (NDJSON)
+  $ dat watch . -j -o report.json      keep report.json up to date
 `;
 
 export function registerWatch(program: Command, ctx: Context): void {
@@ -102,7 +103,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         let ownFiles = new Set<string>();
 
         const render = async (result: AnalysisResult): Promise<void> => {
-            if (display.format === 'json') {
+            if (display.format === 'json' && !display.output) {
                 await ctx.stdout(`${stringifyJson(result)}\n`);
                 return;
             }
@@ -113,6 +114,7 @@ export function registerWatch(program: Command, ctx: Context): void {
                 { ...display, html: undefined, csv: undefined },
                 listLimit(options.top)
             );
+            if (display.format === 'json') return;
             const status = previous
                 ? describeChange(previous, result, display.units)
                 : 'initial scan';
