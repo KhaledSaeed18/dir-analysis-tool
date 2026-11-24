@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TreeWatcher } from '../../src/cli/watcher.ts';
@@ -160,6 +160,33 @@ describe('dat watch', () => {
         const result = await running;
         expect(result.stdout).toBe('');
         expect((await read()).summary.files).toBe(2);
+    });
+
+    it('polls and reports changes that keep sizes and counts', async () => {
+        // Twelve bigger files keep small.txt out of the largest-files list.
+        const big = Object.fromEntries(
+            Array.from({ length: 12 }, (_, i) => [`big${i}.bin`, 'x'.repeat(1000 + i)])
+        );
+        const root = await fixture({ ...big, 'small.txt': 'old' });
+        const old = new Date('2020-01-01T00:00:00Z');
+        await utimes(join(root, 'small.txt'), old, old);
+        const controller = new AbortController();
+        let output = '';
+        const running = cli(['watch', root, '--poll', '1', '--stale', '1y', '--json'], {
+            signal: controller.signal,
+            onStdout: (text) => (output = text),
+        });
+        await waitFor(() => lines(output).length === 1);
+        expect(lines(output)[0]!.staleFiles?.count).toBe(1);
+        const now = new Date();
+        await utimes(join(root, 'small.txt'), now, now);
+        await waitFor(() => lines(output).length === 2);
+        expect(lines(output)[1]!.staleFiles?.count).toBe(0);
+        await new Promise((resolve) => setTimeout(resolve, 1300));
+        controller.abort();
+        const result = await running;
+        // Relative cutoffs and timings move on every scan, but they alone are not a change.
+        expect(lines(result.stdout)).toHaveLength(2);
     });
 });
 
