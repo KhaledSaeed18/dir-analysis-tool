@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises';
 import { Option, type Command } from '../command.ts';
 import { Excluder } from '../../core/exclude.ts';
 import { assertDirectory, listDirectories } from '../../core/options.ts';
@@ -87,7 +88,9 @@ export function registerWatch(program: Command, ctx: Context): void {
         let pending = false;
         let timer: NodeJS.Timeout | null = null;
         let changes = 0;
-        let polling = false;
+        let polling = pollSeconds !== undefined;
+        let rootGone = false;
+        let rootCheck: NodeJS.Timeout | null = null;
 
         const excluder = new Excluder({
             patterns: options.exclude ?? [],
@@ -124,7 +127,94 @@ export function registerWatch(program: Command, ctx: Context): void {
         const readerGone = (): boolean => ctx.stdoutClosed;
 
         let watcher: TreeWatcher | null = null;
-        const run = async (): Promise<void> => {
+        let poller: NodeJS.Timeout | null = null;
+        const closeWatcher = (): void => {
+            watcher?.close();
+            watcher = null;
+        };
+
+        const schedule = (): void => {
+            changes++;
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => void run(), debounce);
+        };
+
+        const startPolling = (seconds: number): void => {
+            polling = true;
+            poller = setInterval(() => void run(), seconds * 1000);
+        };
+
+        // The root was deleted (or replaced by a file): say so once, stop watching, and check every
+        // second until it is a directory again. With --poll, the poll interval does the checking.
+        const markRootGone = (): void => {
+            if (rootGone) return;
+            rootGone = true;
+            ctx.warn(
+                `${escapeControl(target)} was removed; waiting for it to come back (Ctrl+C to stop)`
+            );
+            closeWatcher();
+            if (!polling) rootCheck = setInterval(() => void run(), 1000);
+        };
+
+        const watchFailed = async (failed: TreeWatcher, error: Error): Promise<void> => {
+            failed.close();
+            if (watcher === failed) watcher = null;
+            // A deleted root is handled by the next run, never by polling for it.
+            if (!(await isDirectory(target))) {
+                schedule();
+                return;
+            }
+            ctx.warn(
+                `file watching failed (${escapeControl(error.message)}); falling back to polling every 5 seconds`
+            );
+            if (!poller) startPolling(5);
+        };
+
+        const syncWatcher = async (): Promise<void> => {
+            if (polling || signal?.aborted) return;
+            if (!watcher) {
+                const created: TreeWatcher = new TreeWatcher({
+                    root: target,
+                    isIgnored: (rel) => excluder.isPathExcluded(rel),
+                    onChange: schedule,
+                    onError: (error) => void watchFailed(created, error),
+                });
+                watcher = created;
+                if (created.recursive) {
+                    created.sync([]);
+                    return;
+                }
+            }
+            if (watcher && !watcher.recursive) watcher.sync(await listDirectories(target, options));
+        };
+
+        const scan = async (): Promise<AnalysisResult | null> => {
+            if (!(await isDirectory(target))) {
+                markRootGone();
+                return null;
+            }
+            if (rootGone) {
+                rootGone = false;
+                if (rootCheck) clearInterval(rootCheck);
+                rootCheck = null;
+                changes++;
+            }
+            try {
+                return await runAnalysis(ctx, target, options, {
+                    ...display,
+                    progress: display.progress && previous === null,
+                });
+            } catch (error) {
+                // Deleted while the scan ran.
+                if (!(error instanceof AbortError) && !(await isDirectory(target))) {
+                    markRootGone();
+                    return null;
+                }
+                throw error;
+            }
+        };
+
+        const run = async (initial = false): Promise<void> => {
             if (running) {
                 pending = true;
                 return;
@@ -133,10 +223,8 @@ export function registerWatch(program: Command, ctx: Context): void {
             try {
                 for (;;) {
                     pending = false;
-                    const result = await runAnalysis(ctx, target, options, {
-                        ...display,
-                        progress: display.progress && previous === null,
-                    });
+                    const result = await scan();
+                    if (!result) break;
                     if (
                         !polling ||
                         !previous ||
@@ -151,13 +239,18 @@ export function registerWatch(program: Command, ctx: Context): void {
                     }
                     previous = result;
                     changes = 0;
-                    if (watcher && !watcher.recursive) {
-                        watcher.sync(await listDirectories(target, options));
+                    try {
+                        await syncWatcher();
+                    } catch (error) {
+                        if (await isDirectory(target)) throw error;
+                        markRootGone();
+                        break;
                     }
                     if (!pending || signal?.aborted) break;
                 }
             } catch (error) {
                 if (error instanceof AbortError) return;
+                if (initial) throw error;
                 ctx.io.stderr.write(
                     `${ctx.err.red('error')} ${escapeControlInLines(errorMessage(error))}\n`
                 );
@@ -166,56 +259,35 @@ export function registerWatch(program: Command, ctx: Context): void {
             }
         };
 
-        const schedule = (): void => {
-            changes++;
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => void run(), debounce);
-        };
-
-        await run();
-        if (signal?.aborted || readerGone()) return;
-
-        let poller: NodeJS.Timeout | null = null;
-        const startPolling = (seconds: number): void => {
-            polling = true;
-            poller = setInterval(() => void run(), seconds * 1000);
-        };
-        if (pollSeconds) {
-            startPolling(pollSeconds);
-        } else {
-            watcher = new TreeWatcher({
-                root: target,
-                isIgnored: (rel) => excluder.isPathExcluded(rel),
-                onChange: schedule,
-                onError: (error) => {
-                    ctx.warn(
-                        `file watching failed (${escapeControl(error.message)}); falling back to polling every 5 seconds`
-                    );
-                    watcher?.close();
-                    watcher = null;
-                    if (!poller) startPolling(5);
-                },
-            });
-            watcher.sync(watcher.recursive ? [] : await listDirectories(target, options));
+        await run(true);
+        if (!signal?.aborted && !readerGone()) {
+            if (pollSeconds) startPolling(pollSeconds);
+            await Promise.race([
+                stopped,
+                new Promise<void>((resolve) => {
+                    if (!signal) return; // without a signal the process runs until killed or stopped
+                    if (signal.aborted) resolve();
+                    signal.addEventListener('abort', () => resolve(), { once: true });
+                }),
+            ]);
         }
-
-        await Promise.race([
-            stopped,
-            new Promise<void>((resolve) => {
-                if (!signal) return; // without a signal the process runs until killed or stopped
-                if (signal.aborted) resolve();
-                signal.addEventListener('abort', () => resolve(), { once: true });
-            }),
-        ]);
         if (timer) clearTimeout(timer);
         if (poller) clearInterval(poller);
-        watcher?.close();
+        if (rootCheck) clearInterval(rootCheck);
+        closeWatcher();
     });
 }
 
 function fingerprint(result: AnalysisResult): string {
     const s = result.summary;
     return `${s.bytes}:${s.files}:${s.directories}:${result.largestFiles.map((f) => `${f.path}@${f.modified}`).join('|')}`;
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+    return stat(path).then(
+        (stats) => stats.isDirectory(),
+        () => false
+    );
 }
 
 function describeChange(
