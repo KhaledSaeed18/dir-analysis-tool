@@ -48,7 +48,8 @@ describe('dat watch', () => {
         await waitFor(() => lines(output).at(-1)?.summary.files === 2);
         controller.abort();
         const result = await running;
-        expect(result.code).toBe(0);
+        expect(result.code).toBe(130);
+        expect(result.stderr).toContain('interrupted');
         expect(lines(result.stdout)[0]!.summary.files).toBe(1);
     });
 
@@ -67,7 +68,7 @@ describe('dat watch', () => {
         await waitFor(() => output.includes('Files     2'));
         controller.abort();
         const result = await running;
-        expect(result.code).toBe(0);
+        expect(result.code).toBe(130);
         expect(result.stderr).toContain('watching');
     });
 
@@ -106,7 +107,7 @@ describe('dat watch', () => {
             await waitFor(() => lines(output).at(-1)?.summary.bytes === 2);
             controller.abort();
             const result = await running;
-            expect(result.code).toBe(0);
+            expect(result.code).toBe(130);
             expect(result.stderr.match(/was removed/g)).toHaveLength(1);
             expect(result.stderr).not.toContain('No such directory');
             expect(result.stderr).not.toContain('falling back');

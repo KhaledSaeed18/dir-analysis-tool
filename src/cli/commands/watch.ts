@@ -284,6 +284,8 @@ export function registerWatch(program: Command, ctx: Context): void {
         if (poller) clearInterval(poller);
         if (rootCheck) clearInterval(rootCheck);
         closeWatcher();
+        // Ctrl+C is how a watch normally ends, and it exits 130 like every other command.
+        if (signal?.aborted) throw new AbortError();
     });
 }
 
