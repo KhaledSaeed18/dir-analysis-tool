@@ -13,7 +13,7 @@ import {
 import { createProgressReporter } from './analyze.ts';
 import { comparePaths, joinRelative } from './paths.ts';
 import { classify, emptyTypeStats } from './classify.ts';
-import { hashFileOfSize } from './duplicates.ts';
+import { BufferPool, COMPARE_CHUNK_BYTES, sameContent } from './content.ts';
 import { Limiter } from './limiter.ts';
 import { DEFAULT_CONCURRENCY, resolveScan, type ScanSettings } from './options.ts';
 import { AbortError, DatError } from '../errors.ts';
@@ -22,7 +22,10 @@ import { rollUp, Scanner, type DirNode, type ScanVisitor } from './scanner.ts';
 const PASS_THROUGH_SHARE = 0.95;
 
 export interface CompareOptions extends ScanSettings {
-    /** Also compare the contents of same-sized files (SHA-256). Default: `false`, size only. */
+    /**
+     * Also compare the contents of same-sized files, byte by byte. Default: `false`, size only.
+     * Progress for this step reports `phase: 'hash'`.
+     */
     content?: boolean | undefined;
     /** Length of the directory delta list. Default: 10. */
     top?: number | undefined;
@@ -215,6 +218,8 @@ async function findContentChanges(
     options: CompareOptions
 ): Promise<Set<string>> {
     const differing = new Set<string>();
+    // Two buffers per pair in flight, reused: memory stays fixed however many files there are.
+    const buffers = new BufferPool(COMPARE_CHUNK_BYTES);
     const limiter = new Limiter(options.concurrency ?? DEFAULT_CONCURRENCY);
     const onAbort = (): void => limiter.abort(new AbortError());
     options.signal?.addEventListener('abort', onAbort, { once: true });
@@ -222,12 +227,13 @@ async function findContentChanges(
     for (const path of paths) {
         limiter.run(async () => {
             try {
-                const bytes = sizeOf(path);
-                const [l, r] = await Promise.all([
-                    hashFileOfSize(joinRelative(leftRoot, path), bytes),
-                    hashFileOfSize(joinRelative(rightRoot, path), bytes),
-                ]);
-                if (l !== r) differing.add(path);
+                const same = await sameContent(
+                    joinRelative(leftRoot, path),
+                    joinRelative(rightRoot, path),
+                    sizeOf(path),
+                    buffers
+                );
+                if (!same) differing.add(path);
             } catch {
                 differing.add(path); // unreadable on one side: report it rather than hide it
             } finally {

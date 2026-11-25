@@ -224,7 +224,7 @@ export interface ComparisonResult {
     tool: ToolInfo;
     startedAt: string;
     durationMs: number;
-    /** How `changed` was decided: by size only, or by size then content hash. */
+    /** How `changed` was decided: by size only, or by size and then by content. */
     mode: 'size' | 'content';
     left: ComparisonSide;
     right: ComparisonSide;

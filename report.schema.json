@@ -712,7 +712,7 @@
                 },
                 "mode": {
                     "enum": ["size", "content"],
-                    "description": "How changed was decided: by size only, or by size then content hash."
+                    "description": "How changed was decided: by size only, or by size and then by content."
                 },
                 "left": {
                     "$ref": "#/$defs/side"
