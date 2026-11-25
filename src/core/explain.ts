@@ -131,6 +131,8 @@ export interface ExplainGroup {
     rule: string | null;
     index: number | null;
     limit: number | string | null;
+    /** `symlink` with followSymlinks: `ENOENT` (target missing) or `ELOOP` (a loop); else `null`. */
+    code: string | null;
     count: number;
     /** The first entries in path order, at most `limit` of them. */
     entries: string[];
@@ -898,6 +900,7 @@ export async function explainSkips(
         rule: null,
         index: null,
         limit: null,
+        code: null,
     });
 
     let scanner: Scanner | null = null;
@@ -964,6 +967,12 @@ export async function explainSkips(
             case 'symlink':
                 groupFor('symlink', () => base('symlink')).add(rel);
                 return;
+            case 'broken-symlink':
+                groupFor(`symlink\0${event.code}`, () => ({
+                    ...base('symlink'),
+                    code: event.code,
+                })).add(rel);
+                return;
         }
     };
 
@@ -999,7 +1008,8 @@ export async function explainSkips(
                 comparePaths(a.file ?? '', b.file ?? '') ||
                 (a.line ?? 0) - (b.line ?? 0) ||
                 (a.index ?? 0) - (b.index ?? 0) ||
-                comparePaths(a.rule ?? '', b.rule ?? '')
+                comparePaths(a.rule ?? '', b.rule ?? '') ||
+                comparePaths(a.code ?? '', b.code ?? '')
         );
 
     return {

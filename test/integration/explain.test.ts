@@ -586,6 +586,7 @@ describe('explainSkips (fixture 31 and totals)', () => {
                 rule: '*.log',
                 index: 0,
                 limit: null,
+                code: null,
                 count: 20,
                 entries: ['f00.log', 'f01.log'],
                 truncated: true,
@@ -761,4 +762,56 @@ describe.skipIf(!hasGit || isWindows)('explain parity on random repositories', (
             expect(mismatches).toEqual([]);
         }
     );
+});
+
+describe.skipIf(isWindows)('broken symbolic links with -L (#22)', () => {
+    const links = async (): Promise<string> =>
+        fixture({
+            'a/b/f.txt': 'data',
+            broken: { symlink: 'missing' },
+            self: { symlink: 'self' },
+        });
+
+    it('are their own groups in explainSkips, and agree with explainPath', async () => {
+        const root = await links();
+        const followed = await explainSkips(root, { followSymlinks: true });
+        expect(followed.totals).toMatchObject({ symlinks: 2, errors: 0 });
+        expect(
+            followed.groups.map((g) => ({ source: g.source, code: g.code, entries: g.entries }))
+        ).toEqual([
+            { source: 'symlink', code: 'ELOOP', entries: ['self'] },
+            { source: 'symlink', code: 'ENOENT', entries: ['broken'] },
+        ]);
+        for (const group of followed.groups) {
+            const single = await explainPath(root, group.entries[0]!, { followSymlinks: true });
+            expect(single.decision).toBe('skipped');
+            expect(single.reason).toMatchObject({ source: 'symlink', code: group.code });
+        }
+        // Without -L they are links that were not followed, as before.
+        const plain = await explainSkips(root);
+        expect(plain.groups).toEqual([
+            expect.objectContaining({ source: 'symlink', code: null, count: 2 }),
+        ]);
+        // analyze keeps them out of errors: a link to nothing is not an unreadable path.
+        const result = await analyze(root, { followSymlinks: true });
+        expect(result.summary).toMatchObject({ errors: 0, symlinks: 2 });
+    });
+
+    it('are listed by dat explain -L instead of "Nothing was skipped"', async () => {
+        const root = await links();
+        const text = await cli(['explain', '-L', '--no-config'], { cwd: root });
+        expect(text.code).toBe(0);
+        expect(text.stdout).not.toContain('Nothing was skipped');
+        expect(text.stdout).toContain('Skipped: 2 broken symbolic links');
+        expect(text.stdout).toContain('symbolic links to nothing (ENOENT)');
+        expect(text.stdout).toContain('symbolic links in a loop (ELOOP)');
+        expect(text.stdout).not.toContain('Sizes inside skipped directories');
+        const single = await cli(['explain', 'self', '-L', '--no-config'], { cwd: root });
+        expect(single.stdout).toContain('symbolic link in a loop (ELOOP)');
+
+        const report = json<{ groups: Array<{ code: string | null }> }>(
+            await cli(['explain', '-L', '--json', '--no-config'], { cwd: root })
+        );
+        expect(report.groups.map((g) => g.code)).toEqual(['ELOOP', 'ENOENT']);
+    });
 });

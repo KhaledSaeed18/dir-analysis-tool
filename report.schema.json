@@ -1012,6 +1012,10 @@
                 "limit": {
                     "type": ["number", "string", "null"]
                 },
+                "code": {
+                    "type": ["string", "null"],
+                    "description": "For a symlink group with --follow-symlinks: ENOENT (the target is missing) or ELOOP (the link loops). Null otherwise. Added in 3.5.4."
+                },
                 "count": {
                     "type": "integer",
                     "minimum": 0

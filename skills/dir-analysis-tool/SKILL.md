@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Node.js 22.12 or later and a shell. Runs dir-analysis-tool 3.2 or later (below 4) from npm (installed or through npx); network access is needed only if npx must download it.
 metadata:
   author: Khaled Saeed
-  version: '1.2.1'
+  version: '1.2.2'
   homepage: https://github.com/KhaledSaeed18/dir-analysis-tool
 ---
 
@@ -145,7 +145,7 @@ dat explain build/out.js -g --json    # why one path is or is not counted
 Pass the same scan options as the scan you are explaining. A path is relative to the current directory; `--root <dir>` sets the scan root (default: the current directory).
 
 - Path form: read `decision` (`included`, `excluded`, `filtered`, `skipped`, `not-found`), then `reason`: `source` (`default`, `pattern`, `gitignore`, `info-exclude`, `size`, `date`, `max-depth`, `symlink`, `special-file`, `error`), `at` (the path or the ancestor that decided), `file` and `line` for ignore files, `rule`, and `limit` with `actual` for filters.
-- Summary form: `totals` (equal to `summary.excluded` and `summary.filtered` from the same scan, plus `depthSkipped`) and `groups[]` with `source`, `file`, `line`, `rule`, `count`, `entries` (first 20; `--limit` up to 1000), and `truncated`.
+- Summary form: `totals` (equal to `summary.excluded` and `summary.filtered` from the same scan, plus `depthSkipped`) and `groups[]` with `source`, `file`, `line`, `rule`, `count`, `entries` (first 20; `--limit` up to 1000), and `truncated`. With `-L`, a `symlink` group with `code` `ENOENT` or `ELOOP` lists links that lead nowhere (3.5.4 or later); they are not errors.
 - The exit code is `0` for every decision; read `decision`, not the exit code.
 - Read `notes[]` and pass them on. They say when something cannot be known (sizes inside an excluded folder are never measured, `descendants` is `null`), when a negation such as `!build/keep/` or `-e '!node_modules'` cannot take effect, when the scan root itself is ignored by Git, and that Git's global excludes file is not read.
 

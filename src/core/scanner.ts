@@ -42,7 +42,9 @@ export type SkipEvent =
     | { kind: 'excluded'; dir: number; name: string; isDirectory: boolean; chain: IgnoreChain }
     | { kind: 'filtered'; dir: number; name: string; stats: Stats }
     | { kind: 'depth'; dir: number; name: string; depth: number }
-    | { kind: 'symlink'; dir: number; name: string };
+    | { kind: 'symlink'; dir: number; name: string }
+    /** With followSymlinks: a link to nothing (`ENOENT`) or to itself (`ELOOP`). */
+    | { kind: 'broken-symlink'; dir: number; name: string; code: string };
 
 /**
  * Per-directory record. Directories are stored in discovery order, so every
@@ -292,9 +294,10 @@ export class Scanner {
             }
         } catch (error) {
             const code = errorCode(error);
-            // A dangling link is not an error, just a link to nothing.
+            // A dangling link is not an error, just a link to nothing; explain still lists it.
             if (isSymlink && (code === 'ENOENT' || code === 'ELOOP')) {
                 this.counters.symlinks++;
+                this.#options.onSkip?.({ kind: 'broken-symlink', dir: dirIndex, name, code });
                 return;
             }
             this.recordError(this.relativePath(dirIndex, name), error);

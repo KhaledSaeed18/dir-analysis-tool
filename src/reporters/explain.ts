@@ -34,7 +34,7 @@ function sizeOf(value: number | string | null, units: ByteUnits): string {
 
 /** One-line description of a rule, as shown in both forms. */
 function ruleLabel(
-    group: Pick<ExplainGroup, 'source' | 'file' | 'line' | 'rule' | 'index' | 'limit'>,
+    group: Pick<ExplainGroup, 'source' | 'file' | 'line' | 'rule' | 'index' | 'limit' | 'code'>,
     units: ByteUnits
 ): string {
     const rule = escapeControl(group.rule ?? '');
@@ -53,7 +53,11 @@ function ruleLabel(
         case 'max-depth':
             return `--max-depth ${String(group.limit)}`;
         case 'symlink':
-            return 'symbolic links (not followed)';
+            return group.code === null
+                ? 'symbolic links (not followed)'
+                : group.code === 'ELOOP'
+                  ? `symbolic links in a loop (${group.code})`
+                  : `symbolic links to nothing (${escapeControl(group.code)})`;
         case 'special-file':
             return 'special files';
         case 'error':
@@ -106,9 +110,11 @@ function reasonLines(reason: ExplainReason, units: ByteUnits, s: Style): Array<[
         case 'symlink':
             rows.push([
                 'Rule',
-                reason.code
-                    ? `symbolic link to nothing (${reason.code}); counted, not followed`
-                    : 'symbolic link; counted, not followed (use -L to follow)',
+                reason.code === 'ELOOP'
+                    ? `symbolic link in a loop (${reason.code}); counted, not followed`
+                    : reason.code
+                      ? `symbolic link to nothing (${escapeControl(reason.code)}); counted, not followed`
+                      : 'symbolic link; counted, not followed (use -L to follow)',
             ]);
             break;
         case 'special-file':
@@ -187,8 +193,11 @@ export function renderSkipsExplanation(
     if (totals.depthSkipped > 0) {
         parts.push(`${plural(totals.depthSkipped, 'directory', 'directories')} beyond --max-depth`);
     }
-    const unfollowed = result.groups.find((g) => g.source === 'symlink')?.count ?? 0;
+    const links = result.groups.filter((g) => g.source === 'symlink');
+    const unfollowed = links.find((g) => g.code === null)?.count ?? 0;
+    const broken = links.reduce((sum, g) => sum + (g.code === null ? 0 : g.count), 0);
     if (unfollowed > 0) parts.push(`${plural(unfollowed, 'symbolic link')} not followed`);
+    if (broken > 0) parts.push(plural(broken, 'broken symbolic link'));
     if (totals.errors > 0) parts.push(`${plural(totals.errors, 'entry', 'entries')} unreadable`);
 
     const lines: string[] = [];
@@ -228,7 +237,10 @@ export function renderSkipsExplanation(
     }
 
     const notes = result.notes.map(noteText);
-    if (result.groups.some((g) => g.source !== 'size' && g.source !== 'date')) {
+    // Filters and broken links skip no directory, so nothing inside one goes unmeasured.
+    const skipsDirectories = (g: ExplainGroup): boolean =>
+        g.source !== 'size' && g.source !== 'date' && !(g.source === 'symlink' && g.code !== null);
+    if (result.groups.some(skipsDirectories)) {
         notes.push(
             'Sizes inside skipped directories are unknown. Measure one with: dat <dir> --all'
         );
