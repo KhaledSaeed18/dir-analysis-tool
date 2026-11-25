@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.4](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.3...v3.5.4) (2026-11-25)
+
+### Bug Fixes
+
+* **analyze:** sort tree and extension ties by code point, like every other list ([f7d527a](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/f7d527a59c5b5ec5fb241246b7a77868e52225fb)), closes [#26](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/26)
+* **explain:** list broken symbolic links followed with -L ([2f3f897](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/2f3f897360b7a53843c04611c99b514236e6ae5f)), closes [#22](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/22)
+
 ## [3.5.3](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.2...v3.5.3) (2026-11-24)
 
 ### Bug Fixes
