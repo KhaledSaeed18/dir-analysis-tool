@@ -142,11 +142,24 @@ export class Scanner {
         const onAbort = (): void => this.#limiter.abort(new AbortError());
         signal?.addEventListener('abort', onAbort, { once: true });
         try {
-            this.#limiter.run(() => this.#scanDir(index, root, chain));
+            this.#limiter.run(() => this.#scanDir(index, root, chain, ''));
             await this.#limiter.idle();
         } finally {
             signal?.removeEventListener('abort', onAbort);
         }
+    }
+
+    /**
+     * Orders two entries as {@link comparePaths} orders their relative paths,
+     * without building them. See {@link compareRelativePaths}.
+     */
+    compareRelative(
+        dirA: number,
+        nameA: string | undefined,
+        dirB: number,
+        nameB: string | undefined
+    ): number {
+        return compareRelativePaths(this.dirs, dirA, nameA, dirB, nameB);
     }
 
     /** Root-relative path of a directory (or of `name` inside it), with `/` separators. */
@@ -180,7 +193,17 @@ export class Scanner {
         return index;
     }
 
-    async #scanDir(index: number, absPath: string, inherited: IgnoreChain): Promise<void> {
+    /**
+     * @param relDir Root-relative path of the directory when the excluder
+     *   matches paths (passed down from the parent, so it is never rebuilt
+     *   from the root), and `''` otherwise.
+     */
+    async #scanDir(
+        index: number,
+        absPath: string,
+        inherited: IgnoreChain,
+        relDir: string
+    ): Promise<void> {
         const { excluder } = this.#options;
         let entries: Dirent[];
         try {
@@ -195,7 +218,6 @@ export class Scanner {
         node.entries = entries.length;
         if (entries.length === 0) return;
 
-        const relDir = excluder.needsPaths ? this.relativePath(index) : '';
         let chain = inherited;
         if (
             excluder.gitignore &&
@@ -207,6 +229,7 @@ export class Scanner {
 
         const base = absPath.endsWith(sep) ? absPath : absPath + sep;
         const checkExclusion = excluder.active;
+        const needsPaths = excluder.needsPaths;
         for (const entry of entries) {
             const name = entry.name;
             const isDirectory = entry.isDirectory();
@@ -215,11 +238,12 @@ export class Scanner {
             const isUnknown = !isDirectory && !isFile && !isSymlink && isUnknownType(entry);
             if (!isDirectory && !isFile && !isSymlink && !isUnknown) continue; // sockets, FIFOs, devices
 
+            // Only path-matching rules need the full path; default excludes match names.
+            const rel = needsPaths ? (relDir ? `${relDir}/${name}` : name) : '';
             if (checkExclusion) {
-                const rel = relDir ? `${relDir}/${name}` : name;
                 // Symlinks and unknown types are checked as files; directories they
                 // resolve to are re-checked once their type is known.
-                if (excluder.isExcluded(rel, name, isDirectory, chain)) {
+                if (excluder.isExcluded(rel || name, name, isDirectory, chain)) {
                     this.counters.excluded++;
                     this.#options.onSkip?.({
                         kind: 'excluded',
@@ -235,25 +259,31 @@ export class Scanner {
             const fullPath = base + name;
             if (this.#options.directoriesOnly && !isDirectory) continue;
             if (isDirectory && !this.#options.followSymlinks) {
-                this.#enterDir(index, name, fullPath, chain);
+                this.#enterDir(index, name, fullPath, chain, rel);
             } else if (isFile) {
                 this.#limiter.run(() => this.#statFile(index, name, fullPath));
             } else {
                 this.#limiter.run(() =>
-                    this.#resolveEntry(index, name, fullPath, chain, isSymlink, isDirectory)
+                    this.#resolveEntry(index, name, fullPath, chain, rel, isSymlink, isDirectory)
                 );
             }
         }
     }
 
-    #enterDir(parent: number, name: string, fullPath: string, chain: IgnoreChain): void {
+    #enterDir(
+        parent: number,
+        name: string,
+        fullPath: string,
+        chain: IgnoreChain,
+        relPath: string
+    ): void {
         const depth = this.dirs[parent]!.depth + 1;
         if (depth > this.#options.maxDepth) {
             this.#options.onSkip?.({ kind: 'depth', dir: parent, name, depth });
             return;
         }
         const child = this.#addDir(name, parent, depth);
-        this.#limiter.run(() => this.#scanDir(child, fullPath, chain));
+        this.#limiter.run(() => this.#scanDir(child, fullPath, chain, relPath));
     }
 
     async #statFile(dirIndex: number, name: string, fullPath: string): Promise<void> {
@@ -277,6 +307,7 @@ export class Scanner {
         name: string,
         fullPath: string,
         chain: IgnoreChain,
+        relPath: string,
         isSymlink: boolean,
         checkedAsDirectory: boolean
     ): Promise<void> {
@@ -308,8 +339,7 @@ export class Scanner {
         if (stats.isDirectory()) {
             const { excluder } = this.#options;
             if (excluder.active && !checkedAsDirectory) {
-                const rel = this.relativePath(dirIndex, name);
-                if (excluder.isExcluded(rel, name, true, chain)) {
+                if (excluder.isExcluded(relPath || name, name, true, chain)) {
                     this.counters.excluded++;
                     this.#options.onSkip?.({
                         kind: 'excluded',
@@ -326,7 +356,7 @@ export class Scanner {
             const key = await inodeKey(stats, fullPath);
             if (this.#seenDirs.has(key)) return;
             this.#seenDirs.add(key);
-            this.#enterDir(dirIndex, name, fullPath, chain);
+            this.#enterDir(dirIndex, name, fullPath, chain, relPath);
         } else if (stats.isFile()) {
             const pending = this.#acceptFile(dirIndex, name, fullPath, stats);
             if (pending) await pending;
@@ -424,6 +454,87 @@ export function rollUp(dirs: DirNode[]): void {
             if (node.bytes > parent.largestChild) parent.largestChild = node.bytes;
         }
     }
+}
+
+/** Code unit of the `/` that joins path segments. */
+const SLASH = 0x2f;
+
+/**
+ * Compares the root-relative paths of two entries, each a directory index
+ * plus an optional name inside it. The result has the same sign as
+ * `comparePaths(relativePath(dirA, nameA), relativePath(dirB, nameB))`.
+ *
+ * Building both paths costs O(depth) time and garbage on every call, which
+ * made top-N tie-breaks on deep trees slow (#31). This walks parent indices
+ * to the closest common directory instead, and compares only the first
+ * segment where the paths part. That is not a segment-by-segment comparison:
+ * when one segment is a prefix of the other, the shorter path continues with
+ * `/` (or ends), and `/` sorts after characters such as `-` and `.`, exactly
+ * as it does in the joined string.
+ */
+export function compareRelativePaths(
+    dirs: readonly Pick<DirNode, 'name' | 'parent' | 'depth'>[],
+    dirA: number,
+    nameA: string | undefined,
+    dirB: number,
+    nameB: string | undefined
+): number {
+    if (dirA === dirB) {
+        if (nameA === undefined || nameB === undefined) {
+            // The directory itself is a prefix of every path inside it.
+            return nameA === nameB ? 0 : nameA === undefined ? -1 : 1;
+        }
+        return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+    }
+    // Walk up to the closest common directory, remembering the directory just
+    // below it on each side (-1 when that side is the common directory).
+    let a = dirA;
+    let b = dirB;
+    let belowA = -1;
+    let belowB = -1;
+    while (dirs[a]!.depth > dirs[b]!.depth) {
+        belowA = a;
+        a = dirs[a]!.parent;
+    }
+    while (dirs[b]!.depth > dirs[a]!.depth) {
+        belowB = b;
+        b = dirs[b]!.parent;
+    }
+    while (a !== b) {
+        belowA = a;
+        a = dirs[a]!.parent;
+        belowB = b;
+        b = dirs[b]!.parent;
+    }
+    // Both paths share everything up to the common directory and its `/`; they
+    // part at the next segment, which is a directory below it or the entry name.
+    const segmentA = belowA === -1 ? nameA : dirs[belowA]!.name;
+    const segmentB = belowB === -1 ? nameB : dirs[belowB]!.name;
+    if (segmentA === undefined) return segmentB === undefined ? 0 : -1;
+    if (segmentB === undefined) return 1;
+    const length = Math.min(segmentA.length, segmentB.length);
+    for (let i = 0; i < length; i++) {
+        const diff = segmentA.charCodeAt(i) - segmentB.charCodeAt(i);
+        if (diff !== 0) return diff;
+    }
+    // One segment is a prefix of the other: compare what follows it, a `/` when
+    // the path goes on and nothing (lowest of all) when it ends.
+    const nextA = nextCode(
+        segmentA,
+        length,
+        belowA !== -1 && (belowA !== dirA || nameA !== undefined)
+    );
+    const nextB = nextCode(
+        segmentB,
+        length,
+        belowB !== -1 && (belowB !== dirB || nameB !== undefined)
+    );
+    return nextA - nextB;
+}
+
+function nextCode(segment: string, at: number, continues: boolean): number {
+    if (at < segment.length) return segment.charCodeAt(at);
+    return continues ? SLASH : -1;
 }
 
 /**
