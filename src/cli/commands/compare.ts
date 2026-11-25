@@ -32,7 +32,7 @@ export function registerCompare(program: Command, ctx: Context): void {
     addScanOptions(command);
     command
         .addOption(
-            new Option('--content', 'compare same-size files by content (SHA-256)').helpGroup(
+            new Option('--content', 'compare same-size files by content, byte by byte').helpGroup(
                 'Report options:'
             )
         )

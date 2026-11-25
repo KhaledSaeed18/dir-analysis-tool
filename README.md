@@ -230,7 +230,7 @@ A size tree (`dat src -t --tree-depth 2`):
 
 | Option                  | Description                                                                                                                                                                               |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--content`             | Also compare same-sized files by content (SHA-256). By default, files are compared by size.                                                                                               |
+| `--content`             | Also compare same-sized files by content, byte by byte, stopping at the first difference. By default, files are compared by size.                                                         |
 | `-n, --top <n>`         | Items per list. Default `10`; `0` lists no files and keeps the counts. JSON and CSV list every added, removed and changed file; the changed-folders list follows `--top` in every format. |
 | `-f, --format <format>` | `pretty`, `json`, `markdown`, or `csv`.                                                                                                                                                   |
 
@@ -533,6 +533,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
   1. Only sizes shared by at least two files are considered. Empty files are excluded, and hard links to the same data are not copies.
   2. Files over 256 KiB are compared by a SHA-256 sample of their first and last 64 KiB.
   3. Remaining candidates are hashed in full: small files in a single read, large files streamed through reusable buffers. Each size group is finished as soon as its last file is hashed, so intermediate hash maps are retained only for groups in flight; candidates and results still use memory proportional to their count.
+- **Comparing contents.** `dat compare --content` reads each pair of same-size files side by side, in 256 KiB chunks through a fixed set of reusable buffers, and stops at the first byte that differs. No hash is computed, and the comparison itself uses a fixed amount of memory however large the files are.
 - **Disk usage.** Sizes are apparent sizes (file lengths). `On disk` is the space allocated in blocks, which is what `du` reports.
 - **Determinism.** Results are sorted by size and then by path, so the same tree always produces the same output, whatever order the filesystem returned it in. Equal sizes are ordered by comparing paths where they first differ, without building them, so deep trees full of same-size files rank them as fast as shallow ones.
 
