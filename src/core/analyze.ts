@@ -298,7 +298,7 @@ class Collector implements ScanVisitor {
             if (depth < features.tree.depth) {
                 let heap = this.#treeFiles.get(dir);
                 if (!heap) {
-                    heap = new TopK(features.tree.limit, (a, b) => a.name.localeCompare(b.name));
+                    heap = new TopK(features.tree.limit, (a, b) => comparePaths(a.name, b.name));
                     this.#treeFiles.set(dir, heap);
                 }
                 if (heap.accepts(bytes)) heap.push(bytes, makeRef());
@@ -415,7 +415,7 @@ class Collector implements ScanVisitor {
                     (a, b) =>
                         b.bytes - a.bytes ||
                         b.files - a.files ||
-                        a.extension.localeCompare(b.extension)
+                        comparePaths(a.extension, b.extension)
                 ),
             largestDirectories: this.#largestDirectories(scanner),
             largestFiles: this.#topFiles.sorted().map(toEntry),
@@ -519,7 +519,7 @@ class Collector implements ScanVisitor {
                 },
             });
         }
-        candidates.sort((a, b) => b.bytes - a.bytes || a.key.localeCompare(b.key));
+        candidates.sort((a, b) => b.bytes - a.bytes || comparePaths(a.key, b.key));
         const shown = candidates.slice(0, limit);
         result.children = shown.map((c) => c.build());
 
