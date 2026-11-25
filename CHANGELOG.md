@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.5](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.4...v3.5.5) (2026-11-25)
+
+### Performance Improvements
+
+* **analyze:** break size ties on deep trees without building paths ([00502af](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/00502af90ac6021c867ebe9eac0909f4e040ba18)), closes [#31](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/31)
+
 ## [3.5.4](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.3...v3.5.4) (2026-11-25)
 
 ### Bug Fixes
