@@ -253,7 +253,7 @@ build/keep/k.txt: excluded
   Note        Git's global excludes file (core.excludesFile, usually ~/.config/git/ignore) is not read; Git may ignore more than dat does.
 ```
 
-Without a path, it runs one scan and groups everything left out by the rule that skipped it: default excludes, each exclude pattern, each `.gitignore` line, size and date filters, `--max-depth`, and symbolic links that were not followed. Counts are complete and equal `summary.excluded` and `summary.filtered` from `analyze`; each group lists its first 20 entries in path order.
+Without a path, it runs one scan and groups everything left out by the rule that skipped it: default excludes, each exclude pattern, each `.gitignore` line, size and date filters, `--max-depth`, and symbolic links that were not followed. With `-L`, links that can't be followed are grouped by why: `ENOENT` (the target is missing) or `ELOOP` (the link loops); they count in `summary.symlinks`, not in `errors`, and the group's `code` field says which. Counts are complete and equal `summary.excluded` and `summary.filtered` from `analyze`; each group lists its first 20 entries in path order.
 
 ```text
 $ dat explain -g
@@ -280,7 +280,7 @@ Sizes inside skipped directories are unknown. Measure one with: dat <dir> --all
 
 All scan options are accepted, as are `--si`, `--color`, `--no-color`, `--no-progress`, and `-q`. The path is relative to the current directory and must be inside the root.
 
-- **Decisions:** `included`, `excluded` (a default, a pattern, `.gitignore`, or `.git/info/exclude`), `filtered` (size or date), `skipped` (beyond `--max-depth`, a symbolic link that is not followed, a socket or device, or an unreadable folder), and `not-found`. The exit code is `0` for all of them, so read `decision`; `1` means an error, such as a path outside the root.
+- **Decisions:** `included`, `excluded` (a default, a pattern, `.gitignore`, or `.git/info/exclude`), `filtered` (size or date), `skipped` (beyond `--max-depth`, a symbolic link that is not followed or, with `-L`, leads nowhere, a socket or device, or an unreadable folder), and `not-found`. The exit code is `0` for all of them, so read `decision`; `1` means an error, such as a path outside the root.
 - **What it cannot know** is said, not guessed. dat never enters an excluded directory, so the size and count below one stay unknown (`descendants` is always `null`). Notes flag a negation that cannot work (`!build/keep/` under an ignored `build/`, `-e '!node_modules'`, or `-e '!x.log'` against a `.gitignore` rule), a scan root that Git ignores, nested repositories, matches that depend on the platform's case-insensitivity, and counts that depend on scan order (hard links, followed symlinks).
 - **Not read:** Git's global excludes file (`core.excludesFile`, usually `~/.config/git/ignore`). Every `-g` explanation inside a repository says so. A `.git` file, which links a worktree or submodule to its repository, is counted as an ordinary file, because default excludes only skip directories.
 - `--max-depth` skips are reported only here (`totals.depthSkipped`); `analyze` does not count them.

@@ -167,4 +167,11 @@ describe.skipIf(isWindows)('file names with control characters', () => {
         expect(errors).toContain('dir\\x1b[2J');
         expect(escapeControlInLines(result.stderr)).toBe(result.stderr);
     }, 10_000);
+    it('are escaped when dat explain -L lists a broken symbolic link', async () => {
+        const root = await fixture({ [COLOR]: { symlink: 'missing' } });
+        const result = await cli(['explain', '-L', '--no-config'], { cwd: root });
+        expect(result.stdout).toContain('symbolic links to nothing (ENOENT)');
+        expect(result.stdout).toContain('evil\\x1b[31m.txt');
+        expect(escapeControlInLines(result.stdout)).toBe(result.stdout);
+    });
 });
