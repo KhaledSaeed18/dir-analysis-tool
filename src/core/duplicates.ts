@@ -1,7 +1,9 @@
 import { createHash, hash } from 'node:crypto';
-import { readFile } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { close, open, read } from 'node:fs';
+import { open as openHandle } from 'node:fs/promises';
 import { AbortError } from '../errors.ts';
+import { BufferPool } from './content.ts';
+import { HashPool, workerCount, type HashJob } from './hash-pool.ts';
 import { exactInodeKey } from './scanner.ts';
 
 /** Files up to this size are read in one call and hashed in full straight away. */
@@ -42,7 +44,21 @@ export interface FindDuplicatesOptions<T extends DuplicateCandidate> {
     onProgress?: ((progress: DuplicateProgress) => void) | undefined;
     /** Called for files that could not be read (deleted or locked mid-run). */
     onError?: ((candidate: T, error: unknown) => void) | undefined;
+    /**
+     * Worker threads that hash a stage with at least {@link workerThreshold}
+     * files. Default: {@link workerCount} of `concurrency`; `0` hashes on the
+     * main thread only. Either way the results are the same.
+     */
+    workers?: number | undefined;
+    /** Files a stage needs before workers are started. Default: {@link WORKER_THRESHOLD}. */
+    workerThreshold?: number | undefined;
 }
+
+/**
+ * Starting workers takes tens of milliseconds, which hashing this many small
+ * files on the main thread costs too.
+ */
+export const WORKER_THRESHOLD: number = 4096;
 
 /**
  * Finds files with identical contents among groups of same-sized files.
@@ -68,11 +84,31 @@ export async function findDuplicates<T extends DuplicateCandidate>(
         (distinct[0]!.bytes <= SAMPLE_THRESHOLD ? small : large).push(distinct);
     }
 
-    const buffers = new BufferPool();
-    const sampled = await hashStage(large, 'sample', options, buffers);
-    for (const group of sampled) small.push(group.members);
-    return hashStage(small, 'full', options, buffers);
+    const hashing: Hashing = {
+        buffers: new BufferPool(READ_BUFFER_BYTES),
+        pool: null,
+        workers: options.workers ?? workerCount(options.concurrency),
+        threshold: options.workerThreshold ?? WORKER_THRESHOLD,
+    };
+    try {
+        const sampled = await hashStage(large, 'sample', options, hashing);
+        for (const group of sampled) small.push(group.members);
+        return await hashStage(small, 'full', options, hashing);
+    } finally {
+        await hashing.pool?.close();
+    }
 }
+
+/** How a run hashes: pooled buffers on the main thread, and workers once a stage is big. */
+interface Hashing {
+    buffers: BufferPool;
+    pool: HashPool | null;
+    workers: number;
+    threshold: number;
+}
+
+/** Files sent to a worker at once, so messaging costs little per file. */
+const WORKER_BATCH = 64;
 
 interface GroupState<T extends DuplicateCandidate> {
     bytes: number;
@@ -84,7 +120,7 @@ async function hashStage<T extends DuplicateCandidate>(
     groups: T[][],
     stage: DuplicateProgress['stage'],
     options: FindDuplicatesOptions<T>,
-    buffers: BufferPool
+    hashing: Hashing
 ): Promise<Array<HashedGroup<T>>> {
     let total = 0;
     for (const group of groups) total += group.length;
@@ -101,38 +137,110 @@ async function hashStage<T extends DuplicateCandidate>(
         }
     };
 
-    function* tasks(): Generator<() => Promise<void>> {
+    /** Records one file's digest, or its error, the same way for both paths. */
+    const record = (candidate: T, state: GroupState<T>, digest: string | Error): void => {
+        if (typeof digest === 'string') {
+            const members = state.byHash.get(digest);
+            if (members) members.push(candidate);
+            else state.byHash.set(digest, [candidate]);
+        } else {
+            options.onError?.(candidate, digest);
+        }
+        done++;
+        if (--state.pending === 0) finish(state);
+        onProgress?.({ stage, done, total });
+    };
+
+    function* files(): Generator<[T, GroupState<T>]> {
         for (const group of groups) {
             const state: GroupState<T> = {
                 bytes: group[0]!.bytes,
                 pending: group.length,
                 byHash: new Map(),
             };
-            for (const candidate of group) {
-                yield async () => {
-                    try {
-                        const path = options.pathOf(candidate);
-                        const digest =
-                            stage === 'sample'
-                                ? await sampleHash(path, candidate.bytes, buffers)
-                                : await hashFileOfSize(path, candidate.bytes, buffers);
-                        const members = state.byHash.get(digest);
-                        if (members) members.push(candidate);
-                        else state.byHash.set(digest, [candidate]);
-                    } catch (error) {
-                        options.onError?.(candidate, error);
-                    } finally {
-                        done++;
-                        if (--state.pending === 0) finish(state);
-                        onProgress?.({ stage, done, total });
-                    }
-                };
-            }
+            for (const candidate of group) yield [candidate, state];
         }
     }
 
+    if (hashing.workers > 0 && total >= hashing.threshold) {
+        hashing.pool ??= new HashPool(hashing.workers);
+        await hashWithWorkers(files(), stage, options, hashing.pool, record);
+        return results;
+    }
+
+    const { buffers } = hashing;
+    function* tasks(): Generator<() => Promise<void>> {
+        for (const [candidate, state] of files()) {
+            yield async () => {
+                let digest: string | Error;
+                try {
+                    const path = options.pathOf(candidate);
+                    digest =
+                        stage === 'sample'
+                            ? await sampleHash(path, candidate.bytes, buffers)
+                            : await hashFileOfSize(path, candidate.bytes, buffers);
+                } catch (error) {
+                    digest = error instanceof Error ? error : new Error(String(error));
+                }
+                record(candidate, state, digest);
+            };
+        }
+    }
     await runLimited(tasks(), options.concurrency, signal);
     return results;
+}
+
+/**
+ * Hashes a stage on the worker pool, in batches, with two batches in flight
+ * per worker so none waits for the next. Workers finish in any order; the
+ * results are grouped and later sorted the same way as on the main thread.
+ */
+async function hashWithWorkers<T extends DuplicateCandidate>(
+    files: Iterator<[T, GroupState<T>]>,
+    stage: DuplicateProgress['stage'],
+    options: FindDuplicatesOptions<T>,
+    pool: HashPool,
+    record: (candidate: T, state: GroupState<T>, digest: string | Error) => void
+): Promise<void> {
+    const sample = stage === 'sample';
+    function* batches(): Generator<() => Promise<void>> {
+        for (;;) {
+            const batch: Array<[T, GroupState<T>]> = [];
+            const jobs: HashJob[] = [];
+            while (batch.length < WORKER_BATCH) {
+                const next = files.next();
+                if (next.done) break;
+                const [candidate] = next.value;
+                batch.push(next.value);
+                jobs.push([options.pathOf(candidate), candidate.bytes, sample]);
+            }
+            if (batch.length === 0) return;
+            yield async () => {
+                const outcomes = await pool.run(jobs);
+                for (let i = 0; i < batch.length; i++) {
+                    const [candidate, state] = batch[i]!;
+                    const outcome = outcomes[i]!;
+                    record(
+                        candidate,
+                        state,
+                        typeof outcome === 'string'
+                            ? outcome
+                            : Object.assign(new Error(outcome.message), { code: outcome.code })
+                    );
+                }
+            };
+        }
+    }
+    const signal = options.signal;
+    const onAbort = (): void => void pool.close();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+        await runLimited(batches(), pool.size * 2, signal);
+    } catch (error) {
+        throw signal?.aborted ? new AbortError() : error;
+    } finally {
+        signal?.removeEventListener('abort', onAbort);
+    }
 }
 
 /**
@@ -171,7 +279,7 @@ async function runLimited(
 /** Streams a file through SHA-256 and returns the hex digest. */
 export async function hashFile(path: string, buffer?: Buffer): Promise<string> {
     const hasher = createHash(ALGORITHM);
-    const handle = await open(path, 'r');
+    const handle = await openHandle(path, 'r');
     try {
         const chunk = buffer ?? Buffer.allocUnsafe(READ_BUFFER_BYTES);
         let position = 0;
@@ -187,31 +295,55 @@ export async function hashFile(path: string, buffer?: Buffer): Promise<string> {
     return hasher.digest('hex');
 }
 
-/** Hashes a file whose size is known: one read for small files, streaming otherwise. */
+/**
+ * Hashes a file whose size is known: small files in a single read into a
+ * pooled buffer, larger ones streamed. Either way the digest covers the
+ * whole file as it is now, even if it changed size since it was measured.
+ */
 export async function hashFileOfSize(
     path: string,
     size: number,
-    buffers?: BufferPool
+    buffers: BufferPool
 ): Promise<string> {
-    if (size <= SAMPLE_THRESHOLD) return hash(ALGORITHM, await readWhole(path), 'hex');
-    const buffer = buffers?.acquire();
+    const buffer = buffers.acquire();
     try {
+        if (size <= SAMPLE_THRESHOLD) {
+            const whole = await readSmall(path, size, buffer);
+            if (whole !== null) return hash(ALGORITHM, whole, 'hex');
+        }
         return await hashFile(path, buffer);
     } finally {
-        if (buffer) buffers!.release(buffer);
+        buffers.release(buffer);
     }
 }
 
-function readWhole(path: string): Promise<Buffer> {
+/**
+ * Reads a small file with open, one read and close: no `fstat` and no new
+ * buffer, unlike `readFile`, and one promise for all three calls. Asking for
+ * one byte more than expected makes a short read prove the end of the file.
+ * Resolves to null when the file has grown past that, so the caller streams
+ * it instead.
+ */
+function readSmall(path: string, size: number, buffer: Buffer): Promise<Buffer | null> {
     return new Promise((resolve, reject) => {
-        readFile(path, (error, data) => (error ? reject(error) : resolve(data)));
+        open(path, 'r', (openError, fd) => {
+            if (openError) return reject(openError);
+            const wanted = size + 1;
+            read(fd, buffer, 0, wanted, 0, (readError, bytesRead) => {
+                // A failed close cannot change what was read.
+                close(fd, () => {
+                    if (readError) reject(readError);
+                    else resolve(bytesRead < wanted ? buffer.subarray(0, bytesRead) : null);
+                });
+            });
+        });
     });
 }
 
 async function sampleHash(path: string, size: number, buffers: BufferPool): Promise<string> {
     const hasher = createHash(ALGORITHM);
     const buffer = buffers.acquire();
-    const handle = await open(path, 'r');
+    const handle = await openHandle(path, 'r');
     try {
         for (const position of [0, Math.max(0, size - SAMPLE_BYTES)]) {
             const { bytesRead } = await handle.read(buffer, 0, SAMPLE_BYTES, position);
@@ -256,17 +388,4 @@ async function distinctInodes<T extends DuplicateCandidate>(
         distinct.push(candidate);
     }
     return distinct;
-}
-
-/** Reuses read buffers so streaming large files allocates a fixed amount of memory. */
-class BufferPool {
-    readonly #free: Buffer[] = [];
-
-    acquire(): Buffer {
-        return this.#free.pop() ?? Buffer.allocUnsafe(READ_BUFFER_BYTES);
-    }
-
-    release(buffer: Buffer): void {
-        this.#free.push(buffer);
-    }
 }
