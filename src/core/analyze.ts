@@ -460,7 +460,7 @@ class Collector implements ScanVisitor {
 
     #largestDirectories(scanner: Scanner): DirectoryEntry[] {
         const top = new TopK<number>(this.#features.top, (a, b) =>
-            comparePaths(scanner.relativePath(a), scanner.relativePath(b))
+            scanner.compareRelative(a, undefined, b, undefined)
         );
         const dirs = scanner.dirs;
         for (let i = 1; i < dirs.length; i++) {
@@ -541,12 +541,9 @@ class Collector implements ScanVisitor {
         return result;
     }
 
+    /** Ties in the largest-files heap: path order, without building the paths (#31). */
     #compareRefs(a: FileRef, b: FileRef): number {
-        const scanner = this.#scanner!;
-        return comparePaths(
-            scanner.relativePath(a.dir, a.name),
-            scanner.relativePath(b.dir, b.name)
-        );
+        return this.#scanner!.compareRelative(a.dir, a.name, b.dir, b.name);
     }
 }
 

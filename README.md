@@ -534,7 +534,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
   2. Files over 256 KiB are compared by a SHA-256 sample of their first and last 64 KiB.
   3. Remaining candidates are hashed in full: small files in a single read, large files streamed through reusable buffers. Each size group is finished as soon as its last file is hashed, so intermediate hash maps are retained only for groups in flight; candidates and results still use memory proportional to their count.
 - **Disk usage.** Sizes are apparent sizes (file lengths). `On disk` is the space allocated in blocks, which is what `du` reports.
-- **Determinism.** Results are sorted by size and then by path, so the same tree always produces the same output, whatever order the filesystem returned it in.
+- **Determinism.** Results are sorted by size and then by path, so the same tree always produces the same output, whatever order the filesystem returned it in. Equal sizes are ordered by comparing paths where they first differ, without building them, so deep trees full of same-size files rank them as fast as shallow ones.
 
 **Benchmarks** (Apple M4, warm cache, best of three; measurements from the optimization work, not performance guarantees). On the Linux kernel source tree, 96,127 files and 1.53 GiB:
 
@@ -545,7 +545,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
 | Scan and find duplicates           | 2.64 s | **1.20 s** |         |
 | Peak heap while finding duplicates | 118 MB |  **45 MB** |         |
 
-On a synthetic tree of 1,000,000 files, v3.1 scans in 8.9 s where `du -s` takes 13 s. Compared with v2.0.7 on a 140,237-file tree, v3 scans about 3× faster and finds duplicates about 4× faster, with identical results. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
+On a synthetic tree of 1,000,000 files, v3.1 scans in 8.9 s where `du -s` takes 13 s. On a 500-level chain of folders holding 2,000 files of one size, 3.5.5 scans in 44 ms where 3.5.4 took 90 ms (Linux in Docker on the same M4, median of nine), the same as with the largest-files list turned off. Compared with v2.0.7 on a 140,237-file tree, v3 scans about 3× faster and finds duplicates about 4× faster, with identical results. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
 
 The benchmark script reports scan and duplicate timings plus process peak RSS (not JavaScript heap). Results vary with storage, cache state, tree shape, and Node.js version. `du` measures allocated disk space and does not produce the same reports.
 

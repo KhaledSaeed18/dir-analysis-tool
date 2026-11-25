@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { analyze } from '../../src/core/analyze.ts';
 import { comparePaths } from '../../src/core/paths.ts';
+import { Scanner } from '../../src/core/scanner.ts';
 import { createStyle } from '../../src/format/style.ts';
 import { renderAnalysisAs } from '../../src/reporters/index.ts';
 import type { TreeNode } from '../../src/types.ts';
@@ -58,5 +59,54 @@ describe('equal sizes sort by path in code-point order everywhere (#26)', () => 
         expect(at('big.png')).toBeGreaterThan(-1);
         expect(at('big.png')).toBeLessThan(at('big_copy.png'));
         expect(at('b.x')).toBeLessThan(at('b_x'));
+    });
+});
+
+describe('deep trees with equal sizes (#31)', () => {
+    // A 40-level chain of `d` folders, with siblings whose names sort around '/',
+    // and files of one size at every level.
+    async function deep(): Promise<{ root: string; files: string[] }> {
+        const tree: Record<string, { size: number }> = {};
+        let dir = '';
+        for (let level = 0; level < 40; level++) {
+            dir = dir ? `${dir}/d` : 'd';
+            for (const name of ['f', 'd-x', 'd.x/f']) tree[`${dir}/${name}`] = { size: 64 };
+        }
+        tree['d-'] = { size: 64 };
+        const files = Object.keys(tree).sort(comparePaths);
+        return { root: await fixture(tree), files };
+    }
+
+    it('keeps the largest-files list in full-path order', async () => {
+        const { root, files } = await deep();
+        const all = await analyze(root, { top: files.length });
+        expect(all.largestFiles.map((f) => f.path)).toEqual(files);
+        const top = await analyze(root, { top: 7 });
+        expect(top.largestFiles.map((f) => f.path)).toEqual(files.slice(0, 7));
+    });
+
+    it('orders folders of equal size by full path, with / after - and .', async () => {
+        const root = await fixture({
+            'p/own': { size: 100 },
+            'p/q/f': { size: 100 },
+            'p-q/f': { size: 100 },
+            'p.q/f': { size: 100 },
+        });
+        const result = await analyze(root);
+        expect(result.largestDirectories.map((d) => d.path)).toEqual(['p', 'p-q', 'p.q', 'p/q']);
+    });
+
+    it('never rebuilds paths while scanning', async () => {
+        const { root, files } = await deep();
+        const calls = vi.spyOn(Scanner.prototype, 'relativePath');
+        try {
+            // An exclude pattern makes every folder's path needed for matching.
+            await analyze(root, { top: 10, exclude: ['*.zzz'] });
+            // Only the reported entries: 10 files and at most 10 folders.
+            expect(calls.mock.calls.length).toBeLessThanOrEqual(20);
+            expect(files.length).toBeGreaterThan(100);
+        } finally {
+            calls.mockRestore();
+        }
     });
 });
