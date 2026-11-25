@@ -77,13 +77,20 @@ function settled<T>(results: [PromiseSettledResult<T>, PromiseSettledResult<T>])
     return [first.value, second.value];
 }
 
-function openFile(path: string): Promise<number> {
+/** Opens a file for reading; resolves to its descriptor. */
+export function openFile(path: string): Promise<number> {
     return new Promise((resolve, reject) => {
         open(path, 'r', (error, fd) => (error ? reject(error) : resolve(fd)));
     });
 }
 
-function readInto(fd: number, buffer: Buffer, length: number, position: number): Promise<number> {
+/** Reads up to `length` bytes at `position` into the start of `buffer`. */
+export function readInto(
+    fd: number,
+    buffer: Buffer,
+    length: number,
+    position: number
+): Promise<number> {
     return new Promise((resolve, reject) => {
         read(fd, buffer, 0, length, position, (error, bytesRead) =>
             error ? reject(error) : resolve(bytesRead)
@@ -91,7 +98,7 @@ function readInto(fd: number, buffer: Buffer, length: number, position: number):
     });
 }
 
-function closeFile(fd: number): Promise<void> {
+export function closeFile(fd: number): Promise<void> {
     // A failed close cannot change what was read; there is nothing to report.
     return new Promise((resolve) => close(fd, () => resolve()));
 }

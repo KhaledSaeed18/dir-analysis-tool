@@ -532,7 +532,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
 - **Duplicates,** in stages so most files are never read in full:
   1. Only sizes shared by at least two files are considered. Empty files are excluded, and hard links to the same data are not copies.
   2. Files over 256 KiB are compared by a SHA-256 sample of their first and last 64 KiB.
-  3. Remaining candidates are hashed in full: small files in a single read, large files streamed through reusable buffers. Each size group is finished as soon as its last file is hashed, so intermediate hash maps are retained only for groups in flight; candidates and results still use memory proportional to their count.
+  3. Remaining candidates are hashed in full: small files in a single read, large files streamed through reusable buffers. A stage with 4,096 files or more is hashed by up to four worker threads (no more than the CPU cores less one), each with one reusable buffer, so SHA-256 runs in parallel; the results are the same as on the main thread. Each size group is finished as soon as its last file is hashed, so intermediate hash maps are retained only for groups in flight; candidates and results still use memory proportional to their count.
 - **Comparing contents.** `dat compare --content` reads each pair of same-size files side by side, in 256 KiB chunks through a fixed set of reusable buffers, and stops at the first byte that differs. No hash is computed, and the comparison itself uses a fixed amount of memory however large the files are.
 - **Disk usage.** Sizes are apparent sizes (file lengths). `On disk` is the space allocated in blocks, which is what `du` reports.
 - **Determinism.** Results are sorted by size and then by path, so the same tree always produces the same output, whatever order the filesystem returned it in. Equal sizes are ordered by comparing paths where they first differ, without building them, so deep trees full of same-size files rank them as fast as shallow ones.
@@ -546,7 +546,7 @@ Then ask in your own words, for example "why is this repo so big?" or "fail CI i
 | Scan and find duplicates           | 2.64 s | **1.20 s** |         |
 | Peak heap while finding duplicates | 118 MB |  **45 MB** |         |
 
-On a synthetic tree of 1,000,000 files, v3.1 scans in 8.9 s where `du -s` takes 13 s. On a 500-level chain of folders holding 2,000 files of one size, 3.5.5 scans in 44 ms where 3.5.4 took 90 ms (Linux in Docker on the same M4, median of nine), the same as with the largest-files list turned off. Compared with v2.0.7 on a 140,237-file tree, v3 scans about 3× faster and finds duplicates about 4× faster, with identical results. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
+On a synthetic tree of 1,000,000 files, v3.1 scans in 8.9 s where `du -s` takes 13 s. On a 500-level chain of folders holding 2,000 files of one size, 3.5.5 scans in 44 ms where 3.5.4 took 90 ms (Linux in Docker on the same M4, median of nine), the same as with the largest-files list turned off. In a 93,000-file, 1.7 GiB project folder where 92% of the files share their size with another, 3.5.6 finds duplicates in 0.91 s where 3.5.5 took 2.2 s (Linux in Docker), and in 1.22 s where it took 1.50 s on macOS, where file-system calls are the limit; `dat compare --content` of that folder against a copy takes 3.5 s where it took 6.0 s (Linux). Compared with v2.0.7 on a 140,237-file tree, v3 scans about 3× faster and finds duplicates about 4× faster, with identical results. Run `pnpm bench` (or `pnpm bench <directory>`) to measure on your machine.
 
 The benchmark script reports scan and duplicate timings plus process peak RSS (not JavaScript heap). Results vary with storage, cache state, tree shape, and Node.js version. `du` measures allocated disk space and does not produce the same reports.
 
@@ -594,7 +594,7 @@ v3 is a rewrite with a new output format. Most commands keep working unchanged.
 
 **Why does the total differ from `du`?** `du` reports blocks allocated on disk, while the headline size is the sum of file lengths. The `On disk` line matches `du`. Also check what was skipped: `.git` and `node_modules` are excluded by default (`--all` includes them), and hard-linked data is counted once, as `du` does. `dat explain` lists everything a scan skipped and why.
 
-**Is it safe to run on a huge directory?** Yes. The default scan keeps bounded top-N file lists, but folder metadata, hard-link tracking, and symlink tracking still require memory. Duplicate detection, directory comparisons, and optional file lists use additional memory, filesystem concurrency is bounded, and unreadable paths are reported rather than fatal. Press Ctrl+C at any time.
+**Is it safe to run on a huge directory?** Yes. The default scan keeps bounded top-N file lists, but folder metadata, hard-link tracking, and symlink tracking still require memory. Duplicate detection, directory comparisons, and optional file lists use additional memory (duplicate detection on thousands of files also starts up to four worker threads, a fixed few megabytes each), filesystem concurrency is bounded, and unreadable paths are reported rather than fatal. Press Ctrl+C at any time.
 
 **Does it modify anything?** `dat` reads the scanned files. It writes report files when requested, and `dat init` writes a configuration file.
 
