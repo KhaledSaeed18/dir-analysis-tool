@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.7](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.6...v3.5.7) (2026-11-26)
+
+### Performance Improvements
+
+* **watch:** leave the whole --poll interval idle after each scan ([3cbbf60](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/3cbbf606e658dbedefa63b3f44dbf182134ac0de)), closes [#34](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/34) [#34](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/34)
+
 ## [3.5.6](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.5...v3.5.6) (2026-11-26)
 
 ### Performance Improvements
