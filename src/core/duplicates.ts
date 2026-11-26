@@ -52,6 +52,13 @@ export interface FindDuplicatesOptions<T extends DuplicateCandidate> {
     workers?: number | undefined;
     /** Files a stage needs before workers are started. Default: {@link WORKER_THRESHOLD}. */
     workerThreshold?: number | undefined;
+    /** Digests from an earlier run (watch); a file found here is not read again. */
+    cache?:
+        | {
+              get(candidate: T, stage: DuplicateProgress['stage']): string | undefined;
+              set(candidate: T, stage: DuplicateProgress['stage'], digest: string): void;
+          }
+        | undefined;
 }
 
 /**
@@ -140,6 +147,7 @@ async function hashStage<T extends DuplicateCandidate>(
     /** Records one file's digest, or its error, the same way for both paths. */
     const record = (candidate: T, state: GroupState<T>, digest: string | Error): void => {
         if (typeof digest === 'string') {
+            options.cache?.set(candidate, stage, digest);
             const members = state.byHash.get(digest);
             if (members) members.push(candidate);
             else state.byHash.set(digest, [candidate]);
@@ -151,18 +159,33 @@ async function hashStage<T extends DuplicateCandidate>(
         onProgress?.({ stage, done, total });
     };
 
+    const cache = options.cache;
+    const states: Array<[T[], GroupState<T>]> = groups.map((group) => [
+        group,
+        { bytes: group[0]!.bytes, pending: group.length, byHash: new Map() },
+    ]);
+    let toHash = total;
+    if (cache) {
+        // Files whose digest is known are recorded first; only the rest are read.
+        for (const [group, state] of states) {
+            for (const candidate of group) {
+                const digest = cache.get(candidate, stage);
+                if (digest !== undefined) {
+                    record(candidate, state, digest);
+                    toHash--;
+                }
+            }
+        }
+    }
     function* files(): Generator<[T, GroupState<T>]> {
-        for (const group of groups) {
-            const state: GroupState<T> = {
-                bytes: group[0]!.bytes,
-                pending: group.length,
-                byHash: new Map(),
-            };
-            for (const candidate of group) yield [candidate, state];
+        for (const [group, state] of states) {
+            for (const candidate of group) {
+                if (cache?.get(candidate, stage) === undefined) yield [candidate, state];
+            }
         }
     }
 
-    if (hashing.workers > 0 && total >= hashing.threshold) {
+    if (hashing.workers > 0 && toHash >= hashing.threshold) {
         hashing.pool ??= new HashPool(hashing.workers);
         await hashWithWorkers(files(), stage, options, hashing.pool, record);
         return results;

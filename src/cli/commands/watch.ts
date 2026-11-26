@@ -2,6 +2,7 @@ import { stat, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { Option, type Command } from '../command.ts';
 import { Excluder } from '../../core/exclude.ts';
+import { LiveAnalysis } from '../../core/live.ts';
 import { assertDirectory, listDirectories } from '../../core/options.ts';
 import { AbortError, errorMessage } from '../../errors.ts';
 import { formatBytes } from '../../format/bytes.ts';
@@ -12,6 +13,7 @@ import {
     stringifyJson,
 } from '../../format/text.ts';
 import type { AnalysisResult } from '../../types.ts';
+import { analyze, type AnalyzeOptions } from '../../core/analyze.ts';
 import type { Context } from '../context.ts';
 import {
     addOutputOptions,
@@ -28,6 +30,16 @@ import { TreeWatcher } from '../watcher.ts';
 import { checkOutputs, emit, listLimit, runAnalysis } from './analyze.ts';
 
 const CLEAR_SCREEN = '\u001B[2J\u001B[3J\u001B[H';
+/**
+ * Events can be lost without a word (a full kernel queue, a sleeping laptop), so while changes keep
+ * coming, a report is a full scan again at least this often.
+ */
+export const FULL_SCAN_EVERY_MS: number = 10 * 60 * 1000;
+
+/** Whether the next report must come from a full scan instead of the changed folders. */
+export function needsFullScan(lastFullScan: number, now: number): boolean {
+    return now - lastFullScan >= FULL_SCAN_EVERY_MS;
+}
 
 const EXAMPLES = `
 Examples:
@@ -95,6 +107,12 @@ export function registerWatch(program: Command, ctx: Context): void {
         let polling = pollSeconds !== undefined;
         let rootGone = false;
         let rootCheck: NodeJS.Timeout | null = null;
+        // Event mode updates the report from the folders that changed (#34); polling has no events
+        // to go on and scans in full. Options that rule it out (-L, relative dates) also scan in full.
+        let incremental = pollSeconds === undefined;
+        let live: LiveAnalysis | null = null;
+        let lastFullScan = 0;
+        const changed = new Set<string>();
 
         const excluder = new Excluder({
             patterns: options.exclude ?? [],
@@ -144,14 +162,31 @@ export function registerWatch(program: Command, ctx: Context): void {
             watcher = null;
         };
 
-        const schedule = (): void => {
+        const schedule = (path?: string): void => {
             changes++;
+            if (path !== undefined) changed.add(path);
             if (timer) clearTimeout(timer);
             timer = setTimeout(() => void run(), debounce);
         };
 
+        // The first scan, or the first after the root came back: keeps per-folder state from then on.
+        const startLive = async (
+            path: string,
+            settings: AnalyzeOptions
+        ): Promise<AnalysisResult> => {
+            const created = await LiveAnalysis.create(path, settings);
+            if (!created) {
+                incremental = false;
+                return analyze(path, settings);
+            }
+            live = created.live;
+            return created.update.result;
+        };
+
         const startPolling = (seconds: number): void => {
             polling = true;
+            incremental = false;
+            live = null;
             if (rootCheck) clearInterval(rootCheck);
             rootCheck = null;
             // The interval is idle time after each scan, never time from one start to the next: a
@@ -207,7 +242,7 @@ export function registerWatch(program: Command, ctx: Context): void {
                 const created: TreeWatcher = new TreeWatcher({
                     root: target,
                     isIgnored: (rel) => ownFiles.has(rel) || excluder.isPathExcluded(rel),
-                    onChange: schedule,
+                    onChange: (path) => schedule(path),
                     onError: (error) => void watchFailed(created, error),
                 });
                 watcher = created;
@@ -216,7 +251,9 @@ export function registerWatch(program: Command, ctx: Context): void {
                     return;
                 }
             }
-            if (watcher && !watcher.recursive) watcher.sync(await listDirectories(target, options));
+            if (watcher && !watcher.recursive) {
+                watcher.sync(live ? live.directories : await listDirectories(target, options));
+            }
         };
 
         const scan = async (): Promise<AnalysisResult | null> => {
@@ -227,12 +264,25 @@ export function registerWatch(program: Command, ctx: Context): void {
             if (rootGone) {
                 rootGone = false;
                 changes++;
+                live = null; // what came back is a new tree
             }
+            const paths = [...changed];
+            changed.clear();
             try {
-                return await runAnalysis(ctx, target, options, {
-                    ...display,
-                    progress: display.progress && previous === null,
-                });
+                if (incremental && live && !needsFullScan(lastFullScan, Date.now())) {
+                    const update = await live.update(paths);
+                    if (update.mode === 'full') lastFullScan = Date.now();
+                    return update.result;
+                }
+                lastFullScan = Date.now();
+                if (incremental && live) return (await live.rescan()).result;
+                return await runAnalysis(
+                    ctx,
+                    target,
+                    options,
+                    { ...display, progress: display.progress && previous === null },
+                    incremental ? startLive : undefined
+                );
             } catch (error) {
                 // Deleted while the scan ran.
                 if (!(error instanceof AbortError) && !(await isDirectory(target))) {
