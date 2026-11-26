@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.8](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.7...v3.5.8) (2026-11-26)
+
+### Performance Improvements
+
+* **watch:** update reports from the folders that changed instead of re-scanning ([099fac2](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/099fac223742cb12d3d1a87b10c24c435536e5f1)), closes [#34](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/34) [#34](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/34)
+
 ## [3.5.7](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.6...v3.5.7) (2026-11-26)
 
 ### Performance Improvements
