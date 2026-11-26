@@ -302,11 +302,11 @@ dat watch . -j -o report.json             # keep report.json up to date
 - **A missing root.** A directory that doesn't exist (or isn't a directory) when `watch` starts is an error: one message, exit code `1`. If the watched directory is deleted later, `watch` says so once and waits; when it comes back, it reports again and resumes watching, on every platform and with `--poll`.
 - **Stopping.** Ctrl+C stops `watch` with exit code `130`, as for every command. It also stops on its own, with exit code `0`, when the reader of its output goes away (`dat watch --json | head -1`).
 
-| Option             | Description                                                |
-| ------------------ | ---------------------------------------------------------- |
-| `--debounce <ms>`  | Wait this long after the last change. Default `300`.       |
-| `--poll <seconds>` | Re-scan on an interval instead of using filesystem events. |
-| `--no-clear`       | Keep earlier reports instead of clearing the screen.       |
+| Option             | Description                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `--debounce <ms>`  | Wait this long after the last change. Default `300`.                                                                 |
+| `--poll <seconds>` | Re-scan this many seconds after each scan ends, instead of using filesystem events, so scans never run back to back. |
+| `--no-clear`       | Keep earlier reports instead of clearing the screen.                                                                 |
 
 All scan, report, and output options are accepted too (`pretty` and `json` formats).
 

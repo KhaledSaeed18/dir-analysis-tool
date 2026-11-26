@@ -55,7 +55,7 @@ export function registerWatch(program: Command, ctx: Context): void {
         .addOption(
             new Option(
                 '--poll <seconds>',
-                're-scan on an interval instead of using filesystem events'
+                're-scan this many seconds after each scan ends, instead of using filesystem events'
             )
                 .argParser(integer(1))
                 .helpGroup('Watch options:')
@@ -136,6 +136,9 @@ export function registerWatch(program: Command, ctx: Context): void {
 
         let watcher: TreeWatcher | null = null;
         let poller: NodeJS.Timeout | null = null;
+        let finished = false;
+        /** The run in progress, so a poll can wait for it before counting its idle time. */
+        let active: Promise<void> = Promise.resolve();
         const closeWatcher = (): void => {
             watcher?.close();
             watcher = null;
@@ -151,7 +154,16 @@ export function registerWatch(program: Command, ctx: Context): void {
             polling = true;
             if (rootCheck) clearInterval(rootCheck);
             rootCheck = null;
-            poller = setInterval(() => void run(), seconds * 1000);
+            // The interval is idle time after each scan, never time from one start to the next: a
+            // scan that takes longer than the interval would otherwise run again at once, forever.
+            const tick = async (): Promise<void> => {
+                // Resolves when the run in progress, if any, has finished too.
+                await run();
+                if (!finished && !signal?.aborted) {
+                    poller = setTimeout(() => void tick(), seconds * 1000);
+                }
+            };
+            poller = setTimeout(() => void tick(), seconds * 1000);
         };
 
         // The root was deleted (or replaced by a file): say so once, stop watching, and wait for it
@@ -231,11 +243,16 @@ export function registerWatch(program: Command, ctx: Context): void {
             }
         };
 
-        const run = async (initial = false): Promise<void> => {
+        const run = (initial = false): Promise<void> => {
             if (running) {
                 pending = true;
-                return;
+                return active;
             }
+            active = runLoop(initial);
+            return active;
+        };
+
+        const runLoop = async (initial: boolean): Promise<void> => {
             running = true;
             try {
                 for (;;) {
@@ -289,7 +306,8 @@ export function registerWatch(program: Command, ctx: Context): void {
             ]);
         }
         if (timer) clearTimeout(timer);
-        if (poller) clearInterval(poller);
+        finished = true;
+        if (poller) clearTimeout(poller);
         if (rootCheck) clearInterval(rootCheck);
         closeWatcher();
         // Ctrl+C is how a watch normally ends, and it exits 130 like every other command.
