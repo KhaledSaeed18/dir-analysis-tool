@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.6](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.5...v3.5.6) (2026-11-26)
+
+### Performance Improvements
+
+* **compare:** compare --content byte by byte instead of hashing both files ([b2ca3c6](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/b2ca3c6a1ed8422a50d7647cfa775a0ec2298fe9)), closes [#33](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/33)
+* **duplicates:** hash large candidate sets on worker threads, read small files into pooled buffers ([1906336](https://github.com/KhaledSaeed18/dir-analysis-tool/commit/1906336518c35ba4dd8c015930c5c61c621e6300)), closes [#32](https://github.com/KhaledSaeed18/dir-analysis-tool/issues/32)
+
 ## [3.5.5](https://github.com/KhaledSaeed18/dir-analysis-tool/compare/v3.5.4...v3.5.5) (2026-11-25)
 
 ### Performance Improvements
