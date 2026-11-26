@@ -1,6 +1,6 @@
 import { lstat, readdir, stat } from 'node:fs/promises';
 import type { Dirent, Stats } from 'node:fs';
-import { sep } from 'node:path';
+import { basename, sep } from 'node:path';
 import type { ScanError } from '../types.ts';
 import { AbortError, errorCode, errorMessage } from '../errors.ts';
 import type { Excluder, IgnoreChain } from './exclude.ts';
@@ -35,6 +35,22 @@ export interface ScanOptions {
      * reached on paths that already skip an entry.
      */
     onSkip?: ((event: SkipEvent) => void) | undefined;
+    /**
+     * Starts at a folder inside a larger scan instead of at a scan root: the
+     * folder's root-relative path, the ignore rules it inherits, and its depth.
+     * `root` is then that folder's absolute path. With `shallow`, subfolders
+     * are reported to {@link ScanVisitor.subfolder} instead of being entered.
+     * Used by watch to re-read only what changed.
+     */
+    start?: { rel: string; chain: IgnoreChain; depth: number; shallow: boolean } | undefined;
+    /**
+     * Receives files with several hard links instead of counting the first
+     * one seen, so the caller decides which link counts. Their sizes and
+     * filters are then the caller's to apply (see {@link passesFilters}).
+     */
+    onLinkedFile?: ((dir: number, name: string, stats: Stats, key: string) => void) | undefined;
+    /** Called with the directory each recorded error belongs to (also beyond the detail limit). */
+    onError?: ((dir: number, error: ScanError) => void) | undefined;
 }
 
 /** An entry a scan left out. `dir` is the index of the directory holding it. */
@@ -69,8 +85,10 @@ export interface DirNode {
 }
 
 export interface ScanVisitor {
-    /** A directory was accepted and will be scanned. */
-    directory?(index: number, node: DirNode): void;
+    /** A directory was accepted and will be scanned, with the ignore rules it inherits. */
+    directory?(index: number, node: DirNode, chain: IgnoreChain): void;
+    /** With a shallow start: a subfolder that would have been entered. */
+    subfolder?(parent: number, name: string, chain: IgnoreChain): void;
     /** A file passed every exclusion and filter. Called at most once per file. */
     file(dirIndex: number, name: string, stats: Stats, diskBytes: number): void;
 }
@@ -132,17 +150,25 @@ export class Scanner {
     }
 
     async run(): Promise<void> {
-        const { root, signal, excluder } = this.#options;
+        const { root, signal, excluder, start } = this.#options;
         if (signal?.aborted) throw new AbortError();
-        const rootStats = await stat(root);
-        if (this.#options.followSymlinks) this.#seenDirs.add(await inodeKey(rootStats, root));
-
-        const chain = await excluder.loadAncestorChain(root);
-        const index = this.#addDir('', -1, 0);
+        let chain: IgnoreChain;
+        if (start) {
+            // A folder inside a scan: a failure to read it is recorded like any folder's.
+            chain = start.chain;
+        } else {
+            const rootStats = await stat(root);
+            if (this.#options.followSymlinks) this.#seenDirs.add(await inodeKey(rootStats, root));
+            chain = await excluder.loadAncestorChain(root);
+        }
+        const index = this.#addDir(start ? basename(start.rel) : '', -1, start?.depth ?? 0, chain);
+        const relRoot = start?.rel ?? '';
         const onAbort = (): void => this.#limiter.abort(new AbortError());
         signal?.addEventListener('abort', onAbort, { once: true });
         try {
-            this.#limiter.run(() => this.#scanDir(index, root, chain, ''));
+            this.#limiter.run(() =>
+                this.#scanDir(index, root, chain, this.#options.excluder.needsPaths ? relRoot : '')
+            );
             await this.#limiter.idle();
         } finally {
             signal?.removeEventListener('abort', onAbort);
@@ -164,16 +190,14 @@ export class Scanner {
 
     /** Root-relative path of a directory (or of `name` inside it), with `/` separators. */
     relativePath(dirIndex: number, name?: string): string {
-        const parts: string[] = name === undefined ? [] : [name];
-        for (let i = dirIndex; i > 0; i = this.dirs[i]!.parent) parts.push(this.dirs[i]!.name);
-        return parts.toReversed().join('/');
+        return relativePathOf(this.dirs, dirIndex, name);
     }
 
     absolutePath(dirIndex: number, name?: string): string {
         return joinRelative(this.#options.root, this.relativePath(dirIndex, name));
     }
 
-    #addDir(name: string, parent: number, depth: number): number {
+    #addDir(name: string, parent: number, depth: number, chain: IgnoreChain): number {
         const node: DirNode = {
             name,
             parent,
@@ -189,7 +213,7 @@ export class Scanner {
         };
         const index = this.dirs.push(node) - 1;
         this.counters.directories++;
-        this.#visitor.directory?.(index, node);
+        this.#visitor.directory?.(index, node, chain);
         return index;
     }
 
@@ -211,7 +235,7 @@ export class Scanner {
         } catch (error) {
             // -1 marks "could not be read", so it is never reported as an empty folder.
             this.dirs[index]!.entries = -1;
-            this.recordError(this.relativePath(index), error);
+            this.recordError(this.relativePath(index), error, index);
             return;
         }
         const node = this.dirs[index]!;
@@ -282,7 +306,11 @@ export class Scanner {
             this.#options.onSkip?.({ kind: 'depth', dir: parent, name, depth });
             return;
         }
-        const child = this.#addDir(name, parent, depth);
+        if (this.#options.start?.shallow) {
+            this.#visitor.subfolder?.(parent, name, chain);
+            return;
+        }
+        const child = this.#addDir(name, parent, depth, chain);
         this.#limiter.run(() => this.#scanDir(child, fullPath, chain, relPath));
     }
 
@@ -291,7 +319,7 @@ export class Scanner {
         try {
             stats = await lstat(fullPath);
         } catch (error) {
-            this.recordError(this.relativePath(dirIndex, name), error);
+            this.recordError(this.relativePath(dirIndex, name), error, dirIndex);
             return;
         }
         const pending = this.#acceptFile(dirIndex, name, fullPath, stats);
@@ -331,7 +359,7 @@ export class Scanner {
                 this.#options.onSkip?.({ kind: 'broken-symlink', dir: dirIndex, name, code });
                 return;
             }
-            this.recordError(this.relativePath(dirIndex, name), error);
+            this.recordError(this.relativePath(dirIndex, name), error, dirIndex);
             return;
         }
 
@@ -373,6 +401,15 @@ export class Scanner {
         fullPath: string,
         stats: Stats
     ): Promise<void> | undefined {
+        const onLinked = this.#options.onLinkedFile;
+        if (onLinked && !this.#options.countHardlinks && stats.nlink > 1) {
+            const key = inodeKey(stats, fullPath);
+            if (typeof key !== 'string') {
+                return key.then((exact) => onLinked(dirIndex, name, stats, exact));
+            }
+            onLinked(dirIndex, name, stats, key);
+            return undefined;
+        }
         if (!this.#options.countHardlinks && (stats.nlink > 1 || this.#options.followSymlinks)) {
             const key = inodeKey(stats, fullPath);
             if (typeof key !== 'string') {
@@ -397,22 +434,13 @@ export class Scanner {
 
     #countFile(dirIndex: number, name: string, stats: Stats): void {
         const size = stats.size;
-        if (this.#filtersActive) {
-            const o = this.#options;
-            const mtime = stats.mtimeMs;
-            if (
-                size < o.minSize ||
-                size > o.maxSize ||
-                mtime < o.modifiedAfter ||
-                mtime > o.modifiedBefore
-            ) {
-                this.counters.filtered++;
-                o.onSkip?.({ kind: 'filtered', dir: dirIndex, name, stats });
-                return;
-            }
+        if (this.#filtersActive && !passesFilters(this.#options, stats)) {
+            this.counters.filtered++;
+            this.#options.onSkip?.({ kind: 'filtered', dir: dirIndex, name, stats });
+            return;
         }
 
-        const diskBytes = IS_WINDOWS || !(stats.blocks >= 0) ? size : stats.blocks * 512;
+        const diskBytes = diskBytesOf(stats);
         const node = this.dirs[dirIndex]!;
         node.ownFiles++;
         node.ownBytes += size;
@@ -424,15 +452,11 @@ export class Scanner {
     }
 
     /** Counts an error and keeps its details, up to {@link MAX_ERROR_DETAILS}. */
-    recordError(path: string, error: unknown): void {
+    recordError(path: string, error: unknown, dir = -1): void {
         this.counters.errors++;
-        if (this.errors.length >= MAX_ERROR_DETAILS) return;
-        const code = errorCode(error);
-        this.errors.push({
-            path: path || '.',
-            code: code ?? 'UNKNOWN',
-            message: (code && ERROR_DESCRIPTIONS[code]) ?? errorMessage(error),
-        });
+        const detail = scanError(path, error);
+        if (dir >= 0) this.#options.onError?.(dir, detail);
+        if (this.errors.length < MAX_ERROR_DETAILS) this.errors.push(detail);
     }
 }
 
@@ -454,6 +478,47 @@ export function rollUp(dirs: DirNode[]): void {
             if (node.bytes > parent.largestChild) parent.largestChild = node.bytes;
         }
     }
+}
+
+/** Root-relative path of a directory (or of `name` inside it) in `dirs`, with `/` separators. */
+export function relativePathOf(
+    dirs: readonly Pick<DirNode, 'name' | 'parent'>[],
+    dirIndex: number,
+    name?: string
+): string {
+    const parts: string[] = name === undefined ? [] : [name];
+    for (let i = dirIndex; i > 0; i = dirs[i]!.parent) parts.push(dirs[i]!.name);
+    return parts.toReversed().join('/');
+}
+
+/** Whether a file passes the size and date filters. */
+export function passesFilters(
+    options: Pick<ScanOptions, 'minSize' | 'maxSize' | 'modifiedAfter' | 'modifiedBefore'>,
+    stats: Stats
+): boolean {
+    const size = stats.size;
+    const mtime = stats.mtimeMs;
+    return !(
+        size < options.minSize ||
+        size > options.maxSize ||
+        mtime < options.modifiedAfter ||
+        mtime > options.modifiedBefore
+    );
+}
+
+/** Space a file takes on disk, which `du` reports; its length where blocks aren't known. */
+export function diskBytesOf(stats: Stats): number {
+    return IS_WINDOWS || !(stats.blocks >= 0) ? stats.size : stats.blocks * 512;
+}
+
+/** An error's details as reports show them. */
+export function scanError(path: string, error: unknown): ScanError {
+    const code = errorCode(error);
+    return {
+        path: path || '.',
+        code: code ?? 'UNKNOWN',
+        message: (code && ERROR_DESCRIPTIONS[code]) ?? errorMessage(error),
+    };
 }
 
 /** Code unit of the `/` that joins path segments. */

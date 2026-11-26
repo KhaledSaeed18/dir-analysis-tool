@@ -68,7 +68,8 @@ export async function runAnalysis(
     ctx: Context,
     target: string,
     options: AnalyzeOptions,
-    display: DisplaySettings
+    display: DisplaySettings,
+    analyzer: (path: string, options: AnalyzeOptions) => Promise<AnalysisResult> = analyze
 ): Promise<AnalysisResult> {
     const progress = new ProgressLine(
         ctx.io.stderr,
@@ -77,7 +78,7 @@ export async function runAnalysis(
         display.units
     );
     try {
-        return await analyze(target, {
+        return await analyzer(target, {
             ...options,
             signal: ctx.io.signal,
             ...(progress.enabled ? { onProgress: (p) => progress.analysis(p) } : {}),
